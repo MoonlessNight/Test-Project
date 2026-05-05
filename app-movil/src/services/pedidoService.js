@@ -1,56 +1,37 @@
 /**
- * Encapsula las operciones del panel administrativo sobre productos.
- * CRUD como tambien altera el estado del productos.
- * Todas las funciones usa el cliente htttps central par incluir el token y manejo de errores.
+ * Agrupa todas las operaciones del cliente sobre pedidos.
+ * CRUD con consultar detalle de un pedido y cancelar el pedido. Nada de borrar pedido. 
  */
-import api from '../api/apiClient';
+import apiClient from '../api/apiClient';
 
-/**
- * CREA UN PRODUCTO NUEVO
- * ============================
- * En el backend usando el payload del formulario del admin
- */
-export async function createProduct(data){
-    const res = await api.post('/admin/productos', data);
-    return res.data;
-}
+const pedidoService ={
+    // Crear un pedido nuevo con los datos capturados en chechout
+    crearPedido: async ({ dirreccionEnvio, metodoPago = 'efectivo', telefono, notasAdicionales = '', total }) => {
+        const response = await apiClient.post('/cliente/pedidos', {
+            dirreccionEnvio,
+            metodoPago,
+            telefono,
+            notasAdicionales,
+            total,
+        });
+        return response.data?.data?.pedidos || response.data?.pedidos || [];
+    },
+    
+    // Devuelve el historial de pedidos del cliente autenticado
+    getPedidoMe: async () => {
+        const response = await apiClient.get('/cliente/pedidos');
+        return response.data?.data?.pedidos || response.data?.pedidos || [];
+    },
 
-/**
- * ACTUALIZAR PRODUCTO
- * ============================= 
- * Cambia los datos del producto mediante del formulario del admin, mismo de crear producto pero con los datos del producto
- */
-export async function updateProduct(id,data) {
-    const res = await api.put(`/admin/productos/${id}`, data);
-    return res.data;
-}
+    // Obtiene el detalle completo de un pedido por id
+    getPedidoId: async (id) => {
+        const response = await apiClient.get(`/cliente/pedidos/${id}`);
+        return response.data?.data?.pedidos || response.data?.pedidos || [];
+    },
 
-/**
- * CAMBAIR ESTADO DEL PRODUCTO A INACTIVO
- * ============================
- * Cambia el estado de un producto como inactivo
- */
-export async function desactivarProducto(id) {
-    const res = await api.patch(`/admin/productos/${id}/desactivar` );
-    return res.data;
-}
-
-/**
- * CAMBAIR ESTADO DEL PRODUCTO A ACTIVO
- * ============================
- * Cambia el estado de un producto como inactivo
- */
-export async function activarProducto(id) {
-    const res = await api.patch(`/admin/productos/${id}/activar` );
-    return res.data;
-}
-
-/**
- * ELIMINAR PRODUCTO
- * ============================
- * Elimina un producto por su id
- */
-export async function deleteProducto(id){
-    const res = await api.delete(`/admin/productos/${id}`);
-    return res.data;
+    // Cancela un pedido siempre que el backend permita el cambio del estado
+    getPedidoMe: async (id) => {
+        const response = await apiClient.put(`/cliente/pedidos/${id}/cancelar`);
+        return response.data;
+    },
 }
