@@ -94,4 +94,55 @@ export default function CarritoScreen() {
         // Usuario autenticado navega a la pantalla de pagos
         routerPush('/chechkout');
     };
+
+    // Funcion handlerVaciarCarrito
+    // Muestra el dialogo de confirmacion de vaciar carrito
+    const handlerVaciarCarrito = () => {
+        Alert.alert(
+            'Vaciar Carrito',
+            '¿Estas seguero de que quieres vaciar el carrito?',
+            [
+                // Boton "Cancelar" cierre el dialogo sin hacer nada
+                { text: 'cancelar', style: 'cancel'},
+                // Boton "Iniciar Sesion" lleva a pestaña cuenta explore.tsx
+                { text: 'vaciar', style: 'destructive', onPress: () => vaciarCarrito()},
+            ]);};
+    
+    /**
+     * Renderiza principal del carrito
+     * style -> ocupa todo el alto disponible depende el celular ios, android
+     * contentContainerStyle -> aplica padding y gad al contenido interno
+     */
+    return (
+        <ScrollView style={styles.container} contentContinerStyle = {styles.content}>
+            {/** Encabezado
+            * fila horizontal: icono del carrito mas titulo "mi carrito" */}
+        </ScrollView>
+    )
+
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
