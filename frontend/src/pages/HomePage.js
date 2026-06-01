@@ -38,7 +38,7 @@ const HomePage = () => {
   return (
     <>
       {/* Hero Section */}
-      <div className="hero-section text-white py-5" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div className="hero-section text-white py-5" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', position: 'relative', zIndex: 1 }}>
         <Container>
           <Row className="align-items-center py-4">
             <Col md={6} className="fade-in">
@@ -48,7 +48,7 @@ const HomePage = () => {
               <p className="lead mb-4" style={{ fontSize: '1.25rem', opacity: '0.95' }}>
                 Encuentra los mejores productos al mejor precio. Compra de forma segura y recibe en tu hogar.
               </p>
-              <div className="d-flex gap-3 mb-3">
+              <div className="d-flex gap-3 mb-3" style={{ position: 'relative', zIndex: 20 }}>
                 <Link 
                   to="/catalogo"
                   style={{ 
@@ -62,7 +62,10 @@ const HomePage = () => {
                     textDecoration: 'none',
                     fontSize: '1.125rem',
                     transition: 'all 0.3s ease',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    position: 'relative',
+                    zIndex: 20,
+                    pointerEvents: 'auto'
                   }}
                   onMouseOver={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
@@ -90,7 +93,10 @@ const HomePage = () => {
                       textDecoration: 'none',
                       fontSize: '1.125rem',
                       transition: 'all 0.3s ease',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      position: 'relative',
+                      zIndex: 20,
+                      pointerEvents: 'auto'
                     }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = 'white';
@@ -107,11 +113,17 @@ const HomePage = () => {
                 )}
               </div>
             </Col>
-            <Col md={6} className="text-center">
+            <Col md={6} className="text-center" style={{ position: 'relative' }}>
               <div style={{ 
                 fontSize: '12rem', 
                 opacity: '0.15',
-                animation: 'float 3s ease-in-out infinite'
+                animation: 'float 3s ease-in-out infinite',
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none',
+                zIndex: 0
               }}>
                 <i className="bi bi-shop"></i>
               </div>

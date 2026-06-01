@@ -70,6 +70,86 @@ const AdminProductosPage = () => {
     activo: true
   });
   
+  // Función para formatear número a formato de dinero COP
+  const formatearNumeroCOP = (valor) => {
+    // Eliminar cualquier carácter que no sea número o punto decimal
+    let limpio = valor.toString().replace(/[^0-9.]/g, '');
+    
+    // Manejar múltiples puntos decimales (solo mantener el primero)
+    const partes = limpio.split('.');
+    if (partes.length > 2) {
+      limpio = partes[0] + '.' + partes.slice(1).join('');
+    }
+    
+    // Convertir a número
+    let numero = parseFloat(limpio);
+    if (isNaN(numero)) return '';
+    
+    // Formatear con separadores de miles y decimales
+    return new Intl.NumberFormat('es-CO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(numero);
+  };
+
+  // Función para convertir formato de dinero a número para el backend
+  const convertirANumero = (valorFormateado) => {
+    if (!valorFormateado) return '';
+    // Eliminar separadores de miles y reemplazar coma decimal por punto
+    let numero = valorFormateado.toString().replace(/\./g, '').replace(/,/g, '.');
+    return parseFloat(numero);
+  };
+
+  // Manejador de cambio específico para el campo precio
+  const handlePrecioChange = (e) => {
+    let valor = e.target.value;
+    
+    // Si el usuario está borrando completamente, permitir campo vacío
+    if (valor === '') {
+      setFormData({ ...formData, precio: '' });
+      return;
+    }
+    
+    // Extraer solo números y punto decimal
+    let numeros = valor.replace(/[^0-9.]/g, '');
+    
+    // Manejar múltiples puntos decimales
+    const partes = numeros.split('.');
+    if (partes.length > 2) {
+      numeros = partes[0] + '.' + partes.slice(1).join('');
+    }
+    
+    // Limitar a 2 decimales
+    if (numeros.includes('.')) {
+      const decimales = numeros.split('.')[1];
+      if (decimales && decimales.length > 2) {
+        numeros = parseFloat(numeros).toFixed(2);
+      }
+    }
+    
+    let numero = parseFloat(numeros);
+    if (isNaN(numero)) {
+      setFormData({ ...formData, precio: '' });
+      return;
+    }
+    
+    // Formatear el número
+    const formateado = new Intl.NumberFormat('es-CO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(numero);
+    
+    setFormData({ ...formData, precio: formateado });
+  };
+
+  // Función para limpiar el formato al enviar (solo números)
+  const limpiarFormatoPrecio = (precioFormateado) => {
+    if (!precioFormateado) return '';
+    // Eliminar puntos (separadores de miles) y reemplazar coma por punto
+    let numero = precioFormateado.toString().replace(/\./g, '').replace(/,/g, '.');
+    return parseFloat(numero);
+  };
+
   // Productos filtrados
   const productosFiltrados = useMemo(() => {
     return productos.filter(prod => {
@@ -157,7 +237,7 @@ const AdminProductosPage = () => {
       setFormData({
         nombre: producto.nombre,
         descripcion: producto.descripcion || '',
-        precio: producto.precio,
+        precio: formatearNumeroCOP(producto.precio), // Formatear el precio al mostrar
         stock: producto.stock,
         categoriaId: producto.categoriaId,
         subcategoriaId: producto.subcategoriaId || '',
@@ -207,9 +287,12 @@ const AdminProductosPage = () => {
     e.preventDefault();
     
     try {
+      // Limpiar el formato del precio antes de enviar
+      const precioLimpio = limpiarFormatoPrecio(formData.precio);
+      
       const dataToSend = {
         ...formData,
-        precio: parseFloat(formData.precio),
+        precio: precioLimpio,
         stock: parseInt(formData.stock),
         subcategoriaId: formData.subcategoriaId || null
       };
@@ -606,15 +689,16 @@ const AdminProductosPage = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Precio <span className="text-danger">*</span></Form.Label>
                   <Form.Control
-                    type="number"
+                    type="text"
                     name="precio"
                     value={formData.precio}
-                    onChange={handleChange}
+                    onChange={handlePrecioChange}
                     required
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
+                    placeholder="Ej: 1,000,000 o 1,000 o 0.1"
                   />
+                  <Form.Text className="text-muted">
+                    Puedes escribir números con formato: 1,000,000 (millón), 1,000 (mil) o 0.1 (decimal)
+                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>
