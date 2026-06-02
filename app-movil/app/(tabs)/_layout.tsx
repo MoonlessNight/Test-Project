@@ -45,7 +45,7 @@ export default function TabLayout() {
             name = "index"
             options = {{
                 //texto que aparece debajo del icono de la barra
-                title: 'Tienda Adso',
+                title: 'Catalogo',
                 //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
                 //house.fill = icono de casa rellena (representa el icono de la tienda)
                 tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "house.fill" color = {color} />,
@@ -61,10 +61,10 @@ export default function TabLayout() {
             name = "carrito"
             options = {{
                 //texto que aparece debajo del icono de la barra
-                title: 'Carrito',
+                title: 'Carrito de Compras',
                 //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
-                //house.fill = icono de casa rellena (representa el icono de la tienda)
-                tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "house.fill" color = {color} />,
+                //usar 'cart.fill' para mapear correctamente a MaterialIcons en Android/web
+                tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "cart.fill" color = {color} />,
             }}
             />
 
@@ -77,10 +77,10 @@ export default function TabLayout() {
             name = "explore"
             options = {{
                 //texto que aparece debajo del icono de la barra
-                title: 'Cuenta',
+                title: 'Mi Cuenta',
                 //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
-                //house.fill = icono de casa rellena (representa el icono de la tienda)
-                tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "person.circle" color = {color} />,
+                //usar 'person.fill' para mapear correctamente a MaterialIcons en Android/web
+                tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "person.fill" color = {color} />,
             }}
             />
 
