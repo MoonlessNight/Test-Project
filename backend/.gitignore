@@ -1,8 +1,8 @@
 # Ignorar node_modules
 node_modules/
 
-# Ignorar archivo de variables de entorno (contiene datos sensibles)
-.env
+# Ignorar archivo de variables de entorno (contiene datos sensibles) por ahora en comentario.
+#.env
 
 # Ignorar carpeta de imágenes subidas
 uploads/*

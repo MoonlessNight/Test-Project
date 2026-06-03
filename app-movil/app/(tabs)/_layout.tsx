@@ -61,9 +61,9 @@ export default function TabLayout() {
             name = "carrito"
             options = {{
                 //texto que aparece debajo del icono de la barra
-                title: 'Carrito de Compras',
+                title: 'Mi Carrito',
                 //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
-                //usar 'cart.fill' para mapear correctamente a MaterialIcons en Android/web
+                //cart.fill = icono de carrito relleno (representa el icono del carrito)
                 tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "cart.fill" color = {color} />,
             }}
             />
@@ -79,7 +79,7 @@ export default function TabLayout() {
                 //texto que aparece debajo del icono de la barra
                 title: 'Mi Cuenta',
                 //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
-                //usar 'person.fill' para mapear correctamente a MaterialIcons en Android/web
+                //person.circle = icono de persona (representa la cuenta del usuario)
                 tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "person.fill" color = {color} />,
             }}
             />
