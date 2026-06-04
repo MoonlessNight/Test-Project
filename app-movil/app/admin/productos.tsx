@@ -200,7 +200,8 @@ export default function AdminProductosScreen() {
 
                 {/* Botón Eliminar: siempre rojo. Pide confirmación antes de ejecutar. */}
                 <Pressable
-                  style={[styles.actionBtn, { backgroundColor: '#b93a32' }]}
+                  style={[styles.actionBtn, { backgroundColor: '#b93a32', opacity: 0.5, }]}
+                  disabled
                   onPress={() => {
                     // Alert con dos opciones: Cancelar (seguro) o Eliminar (destructivo).
                     Alert.alert('Eliminar producto', 'Estas seguro de eliminar este producto?', [

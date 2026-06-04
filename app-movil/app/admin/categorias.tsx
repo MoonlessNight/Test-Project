@@ -142,7 +142,8 @@ export default function AdminCategoriasScreen() {
                                 </Pressable>
 
                                 <Pressable
-                                    style={[styles.actionBtn, { backgroundColor: '#b93a32' }]}
+                                    style={[styles.actionBtn, { backgroundColor: '#b93a32', opacity: 0.5 }]}
+                                    disabled
                                     onPress={() => {
                                         Alert.alert('Eliminar categoría', '¿Está seguro de eliminar esta categoría?', [
                                             { text: 'Cancelar', style: 'cancel' },
@@ -193,3 +194,16 @@ const styles = StyleSheet.create({
     cardBody: { flex: 1, gap: 2 },
     meta: { color: '#666', fontSize: 12 },
 });
+
+export async function activarProducto(id) {
+    // El backend implementa un toggle; llamamos al mismo endpoint para activar.
+    const res = await api.patch(`/admin/productos/${id}/toggle`);
+    return res.data;
+}
+
+//marca un producto como inactivo
+export async function desactivarProducto(id) {
+    // El backend implementa un toggle; llamamos al mismo endpoint para desactivar.
+    const res = await api.patch(`/admin/productos/${id}/toggle`);
+    return res.data;
+}

@@ -4,7 +4,7 @@
  * todas las funciones usan el cliente http central para incluir el token y manejo de errores 
  */
 
-import api from '../api/apiClient';
+import apiClient from '../api/apiClient';
 
 const buildFormData = (data) => {
     if (data instanceof FormData) {
@@ -23,7 +23,7 @@ const buildFormData = (data) => {
 //crea un producto en el backend usando el payload del formulario del admin
 export async function createProduct(data) {
     const formData = buildFormData(data);
-    const res = await api.post('/admin/productos', formData, {
+    const res = await apiClient.post('/admin/productos', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;
@@ -32,7 +32,7 @@ export async function createProduct(data) {
 //actualiza un producto
 export async function updateProduct(id, data) {
     const formData = buildFormData(data);
-    const res = await api.put(`/admin/productos/${id}`, formData, {
+    const res = await apiClient.put(`/admin/productos/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;
@@ -40,18 +40,21 @@ export async function updateProduct(id, data) {
 
 //elimina un producto
 export async function deleteProduct(id) {
-    const res = await api.delete(`/admin/productos/${id}`);
+    const res = await apiClient.delete(`/admin/productos/${id}`);
     return res.data;
 }
 
-//marca un producto como activo
+// Nuevo: usa el endpoint toggle del backend
+export async function toggleProducto(id) {
+  const res = await apiClient.patch(`/admin/productos/${id}/toggle`);
+  return res.data;
+}
+
+// Opcionales: mantener las funciones antiguas delegando en toggle
 export async function activarProducto(id) {
-    const res = await api.patch(`/admin/productos/${id}/activar`);
-    return res.data;
+  return toggleProducto(id);
 }
 
-//marca un producto como inactivo
 export async function desactivarProducto(id) {
-    const res = await api.patch(`/admin/productos/${id}/desactivar`);
-    return res.data;
+  return toggleProducto(id);
 }
