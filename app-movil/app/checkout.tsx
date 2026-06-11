@@ -34,6 +34,12 @@ type CarritoCtx = { items: unknown[]; total: number; loading: boolean; refreshCa
 // router.replace tiene tipos estrictos en Expo Router; el cast permite pasar strings dinámicos.
 const routerReplace = (path: string) => (router as unknown as { replace: (p: string) => void }).replace(path);
 
+const BRAND_GOLD = '#c7984e';
+const BRAND_GOLD_DARK = '#8a662d';
+const BRAND_NAVY = '#192847';
+const BRAND_BLUE = '#DBE1ED';
+const BRAND_GOLD_BG = '#fff6e3';
+
 // ── MÉTODOS DE PAGO ───────────────────────────────────────────────────────────
 // Arreglo de opciones para los chips de método de pago.
 // 'key' es el valor enviado al servidor; 'label' es lo que se muestra al usuario.
@@ -158,6 +164,7 @@ export default function CheckoutScreen() {
             value={direccionEnvio}
             onChangeText={setDireccionEnvio}
             placeholder="Ej: Calle 10 # 20-30, Bucaramanga"
+            placeholderTextColor={BRAND_GOLD_DARK}
             style={[styles.input, styles.multiline]}
             multiline // Permite varias líneas para direcciones largas.
           />
@@ -167,6 +174,7 @@ export default function CheckoutScreen() {
             value={telefono}
             onChangeText={setTelefono}
             placeholder="3001234567"
+            placeholderTextColor={BRAND_GOLD_DARK}
             keyboardType="phone-pad" // Teclado numérico con #, *.
             style={styles.input}
           />
@@ -197,6 +205,7 @@ export default function CheckoutScreen() {
             value={notasAdicionales}
             onChangeText={setNotasAdicionales}
             placeholder="Indicaciones de entrega"
+            placeholderTextColor={BRAND_GOLD_DARK}
             style={[styles.input, styles.multiline]}
             multiline
           />
@@ -227,21 +236,22 @@ export default function CheckoutScreen() {
 
 // ── ESTILOS ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
   content: { padding: 16, gap: 12 },
   // Centra el contenido cuando se muestra una pantalla de guardia.
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16 },
-  subtitle: { color: '#666' },
+  subtitle: { color: BRAND_NAVY },
   // Tarjeta de sección con fondo temático y padding interior.
-  section: { borderRadius: 12, padding: 12, gap: 10 },
+  section: { borderRadius: 12, padding: 12, gap: 10, borderWidth: 1, borderColor: BRAND_BLUE, backgroundColor: '#fff' },
   // Campo de texto: borde gris, fondo blanco, padding cómodo.
   input: {
     borderWidth: 1,
-    borderColor: '#d8d8d8',
+    borderColor: BRAND_GOLD,
     borderRadius: 10,
     backgroundColor: '#fff',
     paddingHorizontal: 12,
     paddingVertical: 10,
+    color: BRAND_NAVY,
   },
   // Variante multilinea: altura mínima y texto alineado arriba.
   multiline: { minHeight: 70, textAlignVertical: 'top' },
@@ -250,33 +260,33 @@ const styles = StyleSheet.create({
   // Chip de pago no seleccionado.
   paymentChip: {
     borderWidth: 1,
-    borderColor: '#d2d2d2',
+    borderColor: BRAND_BLUE,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: '#fff',
   },
   // Chip seleccionado: borde y fondo azul claro.
-  paymentChipSelected: { borderColor: '#0a7ea4', backgroundColor: '#dff3fb' },
-  // Texto del chip seleccionado: azul oscuro y negrita.
-  paymentChipTextSelected: { color: '#04566f', fontWeight: '700' },
+  paymentChipSelected: { borderColor: BRAND_GOLD, backgroundColor: BRAND_GOLD_BG },
+  // Texto del chip seleccionado: dorado oscuro y negrita.
+  paymentChipTextSelected: { color: BRAND_GOLD_DARK, fontWeight: '700' },
   // Tarjeta de resumen: fondo azul muy claro.
   summary: {
     borderWidth: 1,
-    borderColor: '#dceeff',
-    backgroundColor: '#f6fbff',
+    borderColor: BRAND_BLUE,
+    backgroundColor: BRAND_BLUE,
     borderRadius: 12,
     padding: 12,
     gap: 6,
   },
-  total: { fontSize: 18, fontWeight: '700' },
+  total: { fontSize: 18, fontWeight: '700', color: BRAND_NAVY },
   // Botón principal.
   primaryButton: {
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0a7ea4',
+    backgroundColor: BRAND_GOLD,
   },
   // Opacidad reducida cuando el botón está deshabilitado.
   primaryButtonDisabled: { opacity: 0.45 },

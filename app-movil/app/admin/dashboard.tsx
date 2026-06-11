@@ -135,12 +135,12 @@ export default function AdminDashboardScreen() {
   // El campo 'show' controla si la tarjeta se renderiza o no.
   // La tarjeta de 'Usuarios' solo se muestra a administradores (show: isAdmin).
 const cards: StatCard[] = [
-    { title: 'Categorías',    value: stats.categorias,    icon: 'folder-outline',      gradient: ['#667eea', '#764ba2'], route: '/admin/categorias', show: true },
-    { title: 'Subcategorías', value: stats.subcategorias, icon: 'folder-open-outline', gradient: ['#06b6d4', '#0891b2'], route: '/admin/productos', show: true },
-    { title: 'Productos',     value: stats.productos,     icon: 'cube-outline',        gradient: ['#10b981', '#059669'], route: '/admin/productos', show: true },
-    { title: 'Usuarios',      value: stats.usuarios,      icon: 'people-outline',      gradient: ['#f59e0b', '#d97706'], route: '/admin/usuarios',  show: isAdmin }, // Solo admin.
-    { title: 'Pedidos',       value: stats.pedidos,       icon: 'cart-outline',        gradient: ['#6b7280', '#4b5563'], route: '/admin/pedidos',   show: true },
-    { title: 'Pendientes',    value: stats.pendientes,    icon: 'time-outline',        gradient: ['#ef4444', '#dc2626'], route: '/admin/pedidos',   show: true },
+    { title: 'Categorías',    value: stats.categorias,    icon: 'folder-outline',      gradient: ['#8c6b33', '#c7984e'], route: '/admin/categorias', show: true },
+    { title: 'Subcategorías', value: stats.subcategorias, icon: 'folder-open-outline', gradient: ['#8c6b33', '#c7984e'], route: '/admin/subcategorias', show: true },
+    { title: 'Productos',     value: stats.productos,     icon: 'cube-outline',        gradient: ['#8c6b33', '#c7984e'], route: '/admin/productos', show: true },
+    { title: 'Usuarios',      value: stats.usuarios,      icon: 'people-outline',      gradient: ['#8c6b33', '#c7984e'], route: '/admin/usuarios',  show: isAdmin },
+    { title: 'Pedidos',       value: stats.pedidos,       icon: 'cart-outline',        gradient: ['#8c6b33', '#c7984e'], route: '/admin/pedidos',   show: true },
+    { title: 'Pendientes',    value: stats.pendientes,    icon: 'time-outline',        gradient: ['#8c6b33', '#c7984e'], route: '/admin/pedidos',   show: true },
 ];
 
   // ── HELPER: formateador de moneda ─────────────────────────────────────────
@@ -174,7 +174,7 @@ const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
       {/* Mientras carga: spinner. Cuando termina: grid de tarjetas 2 columnas. */}
       {loading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#6366f1" />
+          <ActivityIndicator size="large" color="#c7984e" />
           <Text style={styles.loadingText}>Cargando estadísticas...</Text>
         </View>
       ) : (
@@ -213,7 +213,7 @@ const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
       {/* Solo se muestra cuando ya terminó de cargar (evita mostrar $0 mientras carga). */}
       {!loading && (
         <View style={styles.salesBanner}>
-          <Ionicons name="trending-up-outline" size={22} color="#6366f1" />
+          <Ionicons name="trending-up-outline" size={22} color="#c7984e" />
           <View style={{ flex: 1 }}>
             <Text style={styles.salesLabel}>Ventas Totales</Text>
             {/* Total de ventas formateado en COP */}
@@ -232,9 +232,9 @@ const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
         </View>
         <View style={styles.sectionBody}>
           {/* Botón: Agregar Producto → va a /admin/productos (color índigo) */}
-          <Pressable style={[styles.actionBtn, { borderColor: '#6366f1' }]} onPress={() => push('/admin/productos')}>
-            <Ionicons name="add-circle-outline" size={18} color="#6366f1" />
-            <Text style={[styles.actionText, { color: '#6366f1' }]}>Agregar Producto</Text>
+          <Pressable style={[styles.actionBtn, { borderColor: '#c7984e' }]} onPress={() => push('/admin/productos')}>
+            <Ionicons name="add-circle-outline" size={18} color="#c7984e" />
+            <Text style={[styles.actionText, { color: '#c7984e' }]}>Agregar Producto</Text>
           </Pressable>
           {/* Botón: Agregar Categoría → va a /admin/categorias (verde) */}
           <Pressable style={[styles.actionBtn, { borderColor: '#10b981' }]} onPress={() => push('/admin/categorias')}>
@@ -265,7 +265,7 @@ const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
         </View>
         {/* URL de la API: 10.0.2.2 es localhost del emulador Android */}
         <View style={styles.infoRow}>
-          <Ionicons name="server-outline" size={16} color="#6366f1" />
+          <Ionicons name="server-outline" size={16} color="#c7984e" />
           <Text style={styles.infoText}>API: http://10.0.2.2:5000</Text>
         </View>
         {/* Rol del usuario actualmente autenticado */}
@@ -292,10 +292,10 @@ const styles = StyleSheet.create({
   restrictedSub: { color: '#888', fontSize: 14 },
 
   // ── HEADER ────────────────────────────────────────
-  // Tarjeta índigo (#6366f1) con bordes redondeados.
+  // Tarjeta oscura (#192847) con bordes redondeados.
   header: {
     borderRadius: 16,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#192847',
     padding: 20,
     gap: 8,               // Espacio entre la fila superior y la descripción.
   },
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#e8e8e8',
   },
   salesLabel: { fontSize: 12, color: '#888' },                           // "Ventas Totales" en gris.
-  salesValue: { fontSize: 22, fontWeight: '800', color: '#6366f1' },     // Monto en índigo grande.
+  salesValue: { fontSize: 22, fontWeight: '800', color: '#c7984e' },     // Monto en dorado grande.
 
   // ── SECCIÓN (Accesos Rápidos) ─────────────────────
   // Contenedor con borde y overflow hidden para que el header redondeado se vea bien.
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   // Encabezado de sección: fondo índigo con ícono + título.
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#6366f1', padding: 14,
+    backgroundColor: '#192847', padding: 14,
   },
   sectionTitle: { color: '#fff', fontWeight: '700', fontSize: 15 },
   sectionBody: { backgroundColor: '#fff', padding: 14, gap: 10 }, // Área blanca con los botones.

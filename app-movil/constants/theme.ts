@@ -5,26 +5,48 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const bgPositiva = '#DBE1ED';
+const bgNegativo = '#192847';
+const bg = '#ffffff';
+const goldDark = '#c7984e';
+const gold = '#f5c271';
+const goldLight = '#f0db7f';
+const oldGold = 'rgb(145, 105, 52)';
+const fntLight = '#ffffff';
+const fntBlack = '#000000';
+
+const tintColorLight = goldDark;
+const tintColorDark = gold;
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: fntBlack,
+    background: bg,
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: bgNegativo,
+    tabIconDefault: bgNegativo,
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: fntLight,
+    background: bgNegativo,
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: goldLight,
+    tabIconDefault: goldLight,
     tabIconSelected: tintColorDark,
   },
+};
+
+export const AppPalette = {
+  bgPositiva,
+  bgNegativo,
+  bg,
+  oldGold,
+  goldDark,
+  gold,
+  goldLight,
+  fntLight,
+  fntBlack,
 };
 
 export const Fonts = Platform.select({

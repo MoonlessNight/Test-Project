@@ -255,10 +255,10 @@ const styles = StyleSheet.create({
   // Fila de búsqueda: input expandible + botón fijo a la derecha.
   searchRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   input: { flex: 1, borderWidth: 1, borderColor: '#d5d5d5', borderRadius: 10, paddingHorizontal: 12, backgroundColor: '#fff' },
-  searchBtn: { backgroundColor: '#0a7ea4', borderRadius: 10, paddingHorizontal: 14, justifyContent: 'center' },
+  searchBtn: { backgroundColor: '#192847', borderRadius: 10, paddingHorizontal: 14, justifyContent: 'center' },
   searchBtnText: { color: '#fff', fontWeight: '700' },
   // Botón verde para crear nuevo producto.
-  createBtn: { backgroundColor: '#218f4c', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
+  createBtn: { backgroundColor: '#c7984e', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
   createBtnText: { color: '#fff', fontWeight: '700' },
   // La lista ocupa todo el espacio disponible entre los controles superiores e inferiores.
   list: { flex: 1 },

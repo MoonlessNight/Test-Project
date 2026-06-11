@@ -54,6 +54,12 @@ const routerReplace = (path: string) => (router as unknown as { replace: (p: str
 //fmt: formatea un numero como precio en pesos colombianos eje fmt (15000) -> $15.000
 const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
 
+const BRAND_GOLD = '#c7984e';
+const BRAND_GOLD_DARK = '#8a662d';
+const BRAND_NAVY = '#192847';
+const BRAND_BLUE = '#DBE1ED';
+const BRAND_GOLD_BG = '#fff6e3';
+
 //componente principal carrito Screen
 export default function CarritoScreen() {
     //obtiene el contexto de auth solo si el usuarioesta autenticado
@@ -71,7 +77,7 @@ export default function CarritoScreen() {
         return (
             <View style={styles.centered}>
                 {/* spinner cirvula color indigo*/}
-                <ActivityIndicator size="large" color="#6366f1"/>
+                <ActivityIndicator size="large" color="#e3f163"/>
                 <Text style={styles.loadingText}>Cargando Carrito ....</Text>
             </View>
         );
@@ -89,7 +95,7 @@ export default function CarritoScreen() {
                     //boton "cancelar" cierra el dialogo sin hacer nada
                     { text: 'cancelar', style: 'cancel' },
                     //boton iniciar sesion lleva a pestaña cuenta explore.tsx
-                    { text: 'Iniciar Sesion', onPress: () => routerReplace('/tabs/explore') },
+                    { text: 'Iniciar Sesion', onPress: () => routerReplace('/(tabs)/explore') },
                 ]
             );
             return; //sale de la funcion
@@ -126,7 +132,7 @@ export default function CarritoScreen() {
                  */
                 }
                 <View style={styles.header}>
-        <Ionicons name="cart" size={28} color="#6366f1" />
+        <Ionicons name="cart" size={28} color={BRAND_GOLD} />
         <Text style={styles.headerTitle}>Mi Carrito</Text>      
         </View>
 
@@ -134,7 +140,7 @@ export default function CarritoScreen() {
       {/* Se muestra un aviso azul explicando que pueden comprar sin iniciar sesión */}
         {!isAuthenticated && (
         <View style={styles.infoBanner}>
-            <Ionicons name="information-circle" size={18} color="#1d4ed8" />
+            <Ionicons name="information-circle" size={18} color={BRAND_NAVY} />
             <Text style={styles.infoBannerText}>
             Puedes agregar productos sin iniciar sesión. Al momento de pagar deberás iniciar sesión.
             </Text>
@@ -147,7 +153,7 @@ export default function CarritoScreen() {
         // Se muestra cuando no hay ningún producto agregado.
         <View style={styles.emptyContainer}>
           {/* Ícono grande de carrito vacío en gris */}
-            <Ionicons name="cart-outline" size={90} color="#ccc" />
+            <Ionicons name="cart-outline" size={90} color={BRAND_GOLD} />
             <Text style={styles.emptyTitle}>Tu carrito está vacío</Text>
             <Text style={styles.empty}>Agrega productos para comenzar tu compra</Text>
           {/* Botón para ir al catálogo (reemplaza la pantalla actual) */}
@@ -174,7 +180,7 @@ export default function CarritoScreen() {
                 </View>
               {/* Botón "Vaciar carrito" con borde rojo → llama handleVaciarCarrito */}
                 <Pressable style={styles.vaciarBtn} onPress={handleVaciarCarrito}>
-                <Ionicons name="trash-outline" size={14} color="#b93a32" />
+                <Ionicons name="trash-outline" size={14} color={BRAND_GOLD_DARK} />
                 <Text style={styles.vaciarText}>Vaciar carrito</Text>
                 </Pressable>
             </View>
@@ -207,19 +213,19 @@ export default function CarritoScreen() {
                     <View style={styles.qtyRow}>
                       {/* Botón "-": reduce 1 unidad, mínimo 1 (Math.max evita llegar a 0) */}
                         <Pressable style={styles.qtyBtn} onPress={() => cambiarCantidad(item.id, Math.max(1, item.cantidad - 1))}>
-                        <Ionicons name="remove" size={14} color="#555" />
+                        <Ionicons name="remove" size={14} color={BRAND_NAVY} />
                         </Pressable>
                       {/* Cantidad actual del ítem */}
                         <Text style={styles.qtyText}>{item.cantidad}</Text>
                       {/* Botón "+": aumenta 1 unidad */}
                         <Pressable style={styles.qtyBtn} onPress={() => cambiarCantidad(item.id, item.cantidad + 1)}>
-                        <Ionicons name="add" size={14} color="#555" />
+                        <Ionicons name="add" size={14} color={BRAND_NAVY} />
                         </Pressable>
                       {/* Subtotal del ítem: precio × cantidad formateado */}
                       <Text style={styles.subtotalItem}>{fmt((item.precio || 0) * item.cantidad)}</Text>
                       {/* Botón de papelera: elimina el ítem del carrito */}
                         <Pressable onPress={() => eliminarItem(item.id)} style={styles.trashBtn}>
-                        <Ionicons name="trash-outline" size={18} color="#b93a32" />
+                        <Ionicons name="trash-outline" size={18} color={BRAND_GOLD_DARK} />
                         </Pressable>
                     </View>
                     </View>
@@ -256,14 +262,14 @@ export default function CarritoScreen() {
             {/* El texto cambia según si el usuario está autenticado o no */}
             <Pressable style={styles.checkoutBtn} onPress={handleIrACheckout}>
                 <Ionicons name="card-outline" size={18} color="#fff" />
-                <Text style={styles.checkoutText}>
+                <Text style={[styles.checkoutText, { color: '#f5f3ff' }] }>
                 {isAuthenticated ? 'Proceder al Pago' : 'Iniciar Sesión para Pagar'}
                 </Text>
             </Pressable>
 
             {/* Botón secundario "Seguir Comprando" → vuelve al catálogo (index.tsx) */}
             <Pressable style={styles.continueBtn} onPress={() => routerReplace('/')}>
-                <Ionicons name="arrow-back-outline" size={16} color="#555" />
+                <Ionicons name="arrow-back-outline" size={16} color={BRAND_NAVY} />
                 <Text style={styles.continueBtnText}>Seguir Comprando</Text>
             </Pressable>
             </View>
@@ -280,7 +286,7 @@ export default function CarritoScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   // Contenedor raíz del ScrollView — ocupa toda la pantalla.
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: '#e0e0e0' },
   // Contenido interno del scroll: padding general, espacio entre hijos (gap) y padding inferior.
     content: { padding: 16, gap: 14, paddingBottom: 32 },
   // Centrado para la pantalla de carga (spinner).
@@ -291,32 +297,32 @@ const styles = StyleSheet.create({
   // Encabezado: fila horizontal con ícono + título.
     header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
   // Título principal "Mi Carrito".
-    headerTitle: { fontSize: 26, fontWeight: '800', color: '#1a1a2e' },
+    headerTitle: { fontSize: 26, fontWeight: '800', color: BRAND_NAVY },
 
   // Banner informativo azul (para usuarios no autenticados).
     infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',    // Alinea arriba para textos largos.
     gap: 8,
-    backgroundColor: '#dbeafe', // Azul claro.
+    backgroundColor: BRAND_BLUE,
     borderRadius: 10,
     padding: 12,
     borderLeftWidth: 4,          // Borde izquierdo más grueso como acento.
-    borderLeftColor: '#3b82f6',  // Azul más oscuro para el acento.
+    borderLeftColor: BRAND_GOLD,
     },
   // Texto del banner: flex:1 para ocupar el ancho restante después del ícono.
-    infoBannerText: { flex: 1, color: '#1e40af', fontSize: 13, lineHeight: 19 },
+    infoBannerText: { flex: 1, color: BRAND_NAVY, fontSize: 13, lineHeight: 19 },
 
   // Contenedor del estado vacío: centrado verticalmente con espacio.
     emptyContainer: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   // Título grande cuando el carrito está vacío.
-    emptyTitle: { fontSize: 22, fontWeight: '700', color: '#333' },
+    emptyTitle: { fontSize: 22, fontWeight: '700', color: BRAND_NAVY },
   // Subtítulo descriptivo cuando el carrito está vacío.
     empty: { color: '#888', textAlign: 'center', fontSize: 14, lineHeight: 22 },
   // Botón "Ir al Catálogo" cuando el carrito está vacío.
     catalogBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, backgroundColor: '#6366f1', // Fondo índigo.
+    borderRadius: 10, backgroundColor: BRAND_GOLD,
     paddingHorizontal: 22, paddingVertical: 13, marginTop: 4,
     },
     catalogBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
@@ -326,7 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e8e8e8',
+    borderColor: BRAND_BLUE,
     overflow: 'hidden', // Los bordes redondeados afectan a los hijos también.
     },
   // Cabecera de la tarjeta: fondo gris muy claro con borde inferior.
@@ -338,17 +344,17 @@ const styles = StyleSheet.create({
     },
   // Fila interna: título + badge.
     sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    sectionTitle: { fontWeight: '700', fontSize: 14, color: '#222' },
-  // Badge (pastilla índigo) con el número de ítems.
-    badge: { backgroundColor: '#6366f1', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
+    sectionTitle: { fontWeight: '700', fontSize: 14, color: BRAND_NAVY },
+  // Badge (pastilla dorada) con el número de ítems.
+    badge: { backgroundColor: BRAND_GOLD, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
     badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   // Botón "Vaciar carrito" con borde rojo y texto rojo.
     vaciarBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: '#b93a32', borderRadius: 8,
+    borderWidth: 1, borderColor: BRAND_GOLD_DARK, borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 5,
     },
-    vaciarText: { color: '#b93a32', fontSize: 12, fontWeight: '600' },
+    vaciarText: { color: BRAND_GOLD_DARK, fontSize: 12, fontWeight: '600' },
   // Línea separadora gris entre ítems del carrito.
     itemDivider: { height: 1, backgroundColor: '#f0f0f0', marginHorizontal: 14 },
 
@@ -359,7 +365,7 @@ const styles = StyleSheet.create({
   // Columna derecha de datos del ítem (flex:1 para ocupar el espacio restante).
     itemBody: { flex: 1, gap: 3 },
   // Nombre del producto en negrita.
-    itemName: { fontWeight: '700', fontSize: 14, color: '#222', lineHeight: 19 },
+    itemName: { fontWeight: '700', fontSize: 14, color: BRAND_NAVY, lineHeight: 19 },
   // Precio unitario en gris.
     itemPrice: { color: '#777', fontSize: 13 },
   // Fila de controles: "-" cantidad "+" subtotal papelera.
@@ -367,13 +373,13 @@ const styles = StyleSheet.create({
   // Botón cuadrado pequeño para aumentar o disminuir cantidad.
     qtyBtn: {
     width: 28, height: 28, borderRadius: 7,
-    borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fafafa',
+    borderWidth: 1, borderColor: BRAND_GOLD, backgroundColor: BRAND_GOLD_BG,
     alignItems: 'center', justifyContent: 'center',
     },
   // Número de cantidad centrado con ancho mínimo para evitar saltos visuales.
-    qtyText: { minWidth: 22, textAlign: 'center', fontWeight: '700', fontSize: 14, color: '#222' },
-  // Subtotal del ítem (precio × cantidad) en color índigo.
-    subtotalItem: { flex: 1, fontWeight: '700', color: '#6366f1', fontSize: 14 },
+    qtyText: { minWidth: 22, textAlign: 'center', fontWeight: '700', fontSize: 14, color: BRAND_NAVY },
+  // Subtotal del ítem (precio × cantidad) en color dorado.
+    subtotalItem: { flex: 1, fontWeight: '700', color: BRAND_GOLD, fontSize: 14 },
   // Área táctil del ícono de papelera con padding para facilitar el toque.
     trashBtn: { padding: 4 },
 
@@ -382,34 +388,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e8e8e8',
+    borderColor: BRAND_BLUE,
     padding: 16,
     gap: 10,
     },
-    summaryTitle: { fontWeight: '700', fontSize: 16, color: '#222', marginBottom: 2 },
+    summaryTitle: { fontWeight: '700', fontSize: 16, color: BRAND_NAVY, marginBottom: 2 },
   // Fila de dos columnas: etiqueta a la izquierda, valor a la derecha.
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     summaryLabel: { color: '#555', fontSize: 14 },
-    summaryValue: { color: '#333', fontSize: 14, fontWeight: '500' },
-  summaryMuted: { color: '#aaa', fontSize: 14 }, // Texto gris para "A calcular".
+    summaryValue: { color: BRAND_NAVY, fontSize: 14, fontWeight: '500' },
+  summaryMuted: { color: BRAND_GOLD_DARK, fontSize: 14 }, // Texto gris para "A calcular".
   // Línea divisoria horizontal antes del total.
-    separator: { height: 1, backgroundColor: '#e8e8e8', marginVertical: 2 },
-    totalLabel: { fontSize: 16, fontWeight: '700', color: '#222' },
-  // Total final: número grande en índigo.
-    totalValue: { fontSize: 24, fontWeight: '800', color: '#6366f1' },
+    separator: { height: 1, backgroundColor: BRAND_BLUE, marginVertical: 2 },
+    totalLabel: { fontSize: 16, fontWeight: '700', color: BRAND_NAVY },
+  // Total final: número grande en dorado.
+    totalValue: { fontSize: 24, fontWeight: '800', color: BRAND_GOLD },
 
-  // Botón principal de checkout: fondo índigo, ícono + texto centrados.
+  // Botón principal de checkout: fondo dorado con borde visible para destacar.
     checkoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 10, backgroundColor: '#6366f1',
+    borderRadius: 10, backgroundColor: '#c7984e',
+    borderWidth: 1, borderColor: '#8a662d',
     paddingVertical: 14, marginTop: 4,
+    shadowColor: '#ffffff', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
     },
-    checkoutText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    checkoutText: { color: '#000000', fontWeight: '700', fontSize: 16 },
   // Botón secundario "Seguir Comprando": borde gris, sin relleno.
     continueBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderRadius: 10, borderWidth: 1, borderColor: '#ccc',
+    borderRadius: 10, borderWidth: 1, borderColor: BRAND_BLUE,
     paddingVertical: 12,
     },
-    continueBtnText: { color: '#555', fontWeight: '600', fontSize: 14 },
+    continueBtnText: { color: BRAND_NAVY, fontWeight: '600', fontSize: 14 },
 });

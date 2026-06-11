@@ -29,11 +29,21 @@ export default function TabLayout() {
             screenOptions = {{
                 //tabBarActiveTintColor color del icono y texto de la pestaña activa 
                 //si colorScheme es null (no detectado) usa light por defecto
-                tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+                tabBarActiveTintColor: '#192847',
+                tabBarInactiveTintColor: '#6b7280',
                 //headerShown false oculta el encabezado superior en todas las pantallas 
                 headerShown: false,
                 //tabBarButton remplaza el boton estandar por hapticTab con vibracion 
                 tabBarButton: HapticTab,
+                tabBarStyle: {
+                    backgroundColor: '#ffffff',
+                    borderTopWidth: 0,
+                    height: 70,
+                    paddingBottom: 8,
+                    paddingTop: 6,
+                    shadowOpacity: 0,
+                    elevation: 0,
+                }
             }}>
 
             {

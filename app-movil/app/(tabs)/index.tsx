@@ -60,12 +60,6 @@ const CARD_WIDTH = (SCREEN_WIDTH - 32 - CARD_GAP) /2;
 //ITEMS_POR_PAGINA numero de productos por pagina usando paginacion 
 const ITEMS_POR_PAGINA = 15;
 
-const FEATURES = [
-    { icon: 'cube-outline', title: 'Envío Rápido', desc: 'Recibe en tu hogar', color: '#6366f1', bg: '#eef2ff' },
-    { icon: 'shield-checkmark', title: 'Compra Segura', desc: 'Datos protegidos', color: '#10b981', bg: '#d1fae5' },
-    { icon: 'headset', title: 'Atención 24/7', desc: 'Siempre disponibles', color: '#06b6d4', bg: '#cffafe' },
-] as const;
-
 /**
  * Componente principal HOME SCREEN
  */
@@ -93,6 +87,8 @@ export default function HomeScreen() {
     const [busqueda, setBusqueda] = useState('');
     //categoriaActiva id de la categoria seleccionada o all para ver todas
     const [categoriaActiva, setCategoriaActiva] = useState<any>('all');
+    //selectorAbierto controla si el menú desplegable de categorías está visible
+    const [selectorAbierto, setSelectorAbierto] = useState(false);
     //productoDetalle producto seleccionado para ver el modal 
     const [productoDetalle, setProductoDetalle] = useState<any>(null);
     //paginaActual numero de la pagina activa para paginacion empieza en 1
@@ -209,13 +205,16 @@ export default function HomeScreen() {
     <>
       {/* ── HERO BANNER ─────────────────────────────────────────────────── */}
       {/* Tarjeta índigo con título, subtítulo y 3 estadísticas en tiempo real */}
-        <View style={styles.hero}>
-        {/* Etiqueta superior en mayúsculas pequeñas */}
-        <ThemedText style={styles.heroLabel}>TIENDA OFICIAL</ThemedText>
-        {/* Título principal con salto de línea usando {'\n'} */}
-        <ThemedText style={styles.heroTitle}>Bienvenido a{'\n'}E-Commerce</ThemedText>
+      <View style={styles.hero}>
+        {/* Etiqueta superior */}
+        <ThemedText style={styles.heroLabel}>SOLUCIONES ARQUITECTÓNICAS</ThemedText>
+        
+        {/* Título principal */}
+        <ThemedText style={styles.heroTitle}>Bienvenido a la{'\n'}Tienda GAVAT</ThemedText>
+        
+        {/* Subtítulo */}
         <ThemedText style={styles.heroSubtitle}>
-            Encuentra los mejores productos al mejor precio.{'\n'}Compra segura y entrega a domicilio.
+          Encuentra los mejores productos al mejor precio.{'\n'}Compra segura y entrega a domicilio.
         </ThemedText>
         {/* Fila de 3 estadísticas dinámicas */}
         <View style={styles.heroStatsRow}>
@@ -232,31 +231,16 @@ export default function HomeScreen() {
           {/* Stat 3: ítems en el carrito del usuario */}
             <View style={styles.heroStat}>
             <ThemedText style={styles.heroStatValue}>{totalItems}</ThemedText>
-            <ThemedText style={styles.heroStatLabel}>En carrito</ThemedText>
+            <ThemedText style={styles.heroStatLabel}>En tu carrito</ThemedText>
             </View>
         </View>
         </View>
-
-      {/* ── TARJETAS DE CARACTERÍSTICAS ─────────────────────────────────── */}
-      {/* ScrollView horizontal: permite deslizar las tarjetas sin ocultar otras */}
-        <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.featuresRow}>
-        {/* Genera una tarjeta por cada entrada en FEATURES */}
-        {FEATURES.map((f) => (
-            <View key={f.title} style={styles.featureCard}>
-            {/* Círculo de color con el ícono de la característica */}
-            <View style={[styles.featureIconCircle, { backgroundColor: f.bg }]}>
-                <Ionicons name={f.icon as any} size={22} color={f.color} />
-            </View>
-            <ThemedText style={styles.featureTitle}>{f.title}</ThemedText>
-            <ThemedText style={styles.featureDesc}>{f.desc}</ThemedText>
-            </View>
-        ))}
-        </ScrollView>
 
       {/* ── BUSCADOR ────────────────────────────────────────────────────── */}
+        <View style={styles.helperRow}>
+          <ThemedText style={styles.helperText}>Busca productos o filtra por categoría</ThemedText>
+        </View>
+
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={18} color="#9ca3af" />
           <TextInput
@@ -273,45 +257,57 @@ export default function HomeScreen() {
           )}
         </View>
 
-      {/* ── CHIPS DE CATEGORÍAS ─────────────────────────────────────────── */}
-      {/* Scroll horizontal de pastillas para filtrar por categoría */}
+      {/* ── ENCABEZADO DE LA SECCIÓN DE PRODUCTOS ───────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <ThemedText style={styles.helperText}>Categorias</ThemedText>
+          </View>
+          <ThemedText style={styles.sectionCount}>{categorias.length} encontrados</ThemedText>
+        </View>
+
+      {/* ── BOTONES DE CATEGORÍAS ─────────────────────────────────────── */}
         <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}>
-        {/* Chip "Todas": selecciona categoriaActiva = 'all' */}
-        <Pressable
-            onPress={() => setCategoriaActiva('all')}
-            style={[styles.chip, categoriaActiva === 'all' && styles.chipActive]}>
-          {/* chipActive agrega fondo índigo cuando está seleccionado */}
-            <ThemedText style={[styles.chipText, categoriaActiva === 'all' && styles.chipTextActive]}>
-            Todas
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryButtonsRow}>
+          <Pressable
+            onPress={() => {
+              setCategoriaActiva('all');
+              setSelectorAbierto(false);
+            }}
+            style={[styles.categoryButton, categoriaActiva === 'all' && styles.categoryButtonActive]}>
+            <ThemedText style={[styles.categoryButtonText, categoriaActiva === 'all' && styles.categoryButtonTextActive]}>
+              Todas
             </ThemedText>
-        </Pressable>
-        {/* Un chip por cada categoría del backend */}
-        {categorias.map((cat: any) => (
+          </Pressable>
+          {categorias.map((cat: any) => (
             <Pressable
-            key={cat.id}
-            onPress={() => setCategoriaActiva(String(cat.id))}
-            style={[styles.chip, categoriaActiva === String(cat.id) && styles.chipActive]}>
-            <ThemedText style={[styles.chipText, categoriaActiva === String(cat.id) && styles.chipTextActive]}>
+              key={cat.id}
+              onPress={() => {
+                setCategoriaActiva(String(cat.id));
+                setSelectorAbierto(false);
+              }}
+              style={[styles.categoryButton, categoriaActiva === String(cat.id) && styles.categoryButtonActive]}>
+              <ThemedText style={[styles.categoryButtonText, categoriaActiva === String(cat.id) && styles.categoryButtonTextActive]}>
                 {cat.nombre}
-            </ThemedText>
+              </ThemedText>
             </Pressable>
-        ))}
+          ))}
         </ScrollView>
 
       {/* ── ENCABEZADO DE LA SECCIÓN DE PRODUCTOS ───────────────────────── */}
         <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>Productos Disponibles</ThemedText>
-        {/* Contador de resultados filtrados */}
-        <ThemedText style={styles.sectionCount}>{productosFiltrados.length} encontrados</ThemedText>
+          <View style={styles.sectionTitleRow}>
+            <ThemedText style={styles.helperText}>Productos</ThemedText>
+          </View>
+          {/* Contador de resultados filtrados */}
+          <ThemedText style={styles.sectionCount}>{productosFiltrados.length} encontrados</ThemedText>
         </View>
 
       {/* ── ESTADO: CARGANDO ────────────────────────────────────────────── */}
         {loading && (
         <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#6366f1" />
+            <ActivityIndicator size="large" color="#c7984e" />
             <ThemedText style={styles.loadingText}>Cargando catálogo...</ThemedText>
         </View>
         )}
@@ -338,14 +334,14 @@ export default function HomeScreen() {
             style={[styles.pagBtn, paginaActual === 1 && styles.pagBtnDisabled]}
             onPress={() => setPaginaActual((p) => Math.max(1, p - 1))}
             disabled={paginaActual === 1}>
-            <Ionicons name="chevron-back" size={15} color={paginaActual === 1 ? '#d1d5db' : '#6366f1'} />
+            <Ionicons name="chevron-back" size={15} color={paginaActual === 1 ? '#d1d5db' : '#c7984e'} />
             <ThemedText style={[styles.pagBtnText, paginaActual === 1 && styles.pagBtnTextDisabled]}>
             Anterior
             </ThemedText>
         </Pressable>
         {/* Indicador de página actual / total de páginas */}
         <ThemedText style={styles.pagInfo}>
-            {paginaActual} / {totalPaginas}
+            {paginaActual} de {totalPaginas} paginas
         </ThemedText>
         {/* Botón "Siguiente": desactivado en la última página */}
         <Pressable
@@ -355,7 +351,7 @@ export default function HomeScreen() {
             <ThemedText style={[styles.pagBtnText, paginaActual === totalPaginas && styles.pagBtnTextDisabled]}>
             Siguiente
             </ThemedText>
-            <Ionicons name="chevron-forward" size={15} color={paginaActual === totalPaginas ? '#d1d5db' : '#6366f1'} />
+            <Ionicons name="chevron-forward" size={15} color={paginaActual === totalPaginas ? '#d1d5db' : '#c7984e'} />
         </Pressable>
         </View>
     ) : (
@@ -439,8 +435,8 @@ export default function HomeScreen() {
             <RefreshControl
             refreshing={refreshing}
             onRefresh={() => loadCatalogo({ isRefresh: true })}
-            colors={['#6366f1']}     // Color del spinner en Android.
-            tintColor="#6366f1"      // Color del spinner en iOS.
+            colors={['#c7984e']}     // Color del spinner en Android.
+            tintColor="#c7984e"      // Color del spinner en iOS.
             />
         }
         />
@@ -528,6 +524,7 @@ const styles = StyleSheet.create({
     content: {
     paddingHorizontal: 16,
     paddingBottom: 16,
+    backgroundColor: '#e0e0e0', // Fondo gris claro para toda la pantalla.
     },
 
   // ── HERO ──────────────────────────────────────────
@@ -535,14 +532,14 @@ const styles = StyleSheet.create({
     hero: {
     borderRadius: 24,
     padding: 22,
-    backgroundColor: '#6366f1', // Índigo.
+    backgroundColor: '#192847', // Fondo oscuro principal.
     marginTop: 16,
     marginBottom: 16,
     gap: 10,                    // Espacio entre cada hijo directo.
     },
   // Etiqueta pequeña en mayúsculas con espaciado de letras (tracking).
     heroLabel: {
-    color: '#c7d2fe',           // Índigo muy claro.
+    color: '#e0e0e0',           // Índigo muy claro.
     letterSpacing: 1.4,
     fontSize: 11,
     fontWeight: '700',
@@ -583,48 +580,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     },
 
-  // ── CARACTERÍSTICAS ───────────────────────────────
-  // Contenedor del scroll horizontal de tarjetas de características.
-    featuresRow: {
-    gap: 10,
-    paddingBottom: 4,
-    marginBottom: 16,
-    },
-  // Cada tarjeta de característica: ancho fijo, sombra sutil.
-    featureCard: {
-    width: 128,
-    borderRadius: 16,
-    padding: 14,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,               // Sombra en Android.
-    gap: 6,
-    },
-  // Círculo de color que contiene el ícono de la característica.
-  // El color de fondo se aplica inline con el campo 'bg' de FEATURES.
-    featureIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,           // Mitad del ancho/alto = círculo perfecto.
-    alignItems: 'center',
-    justifyContent: 'center',
-    },
-    featureTitle: {
-    fontWeight: '700',
-    fontSize: 13,
-    color: '#111827',
-    },
-    featureDesc: {
-    fontSize: 11,
-    color: '#6b7280',           // Gris apagado.
-    },
-
   // ── BUSCADOR ──────────────────────────────────────
+    helperRow: {
+    marginBottom: 8,
+    },
+    helperText: {
+    fontSize: 13,
+    color: '#6b7280',
+    },
   // Contenedor del campo de búsqueda: fila con ícono + input + botón limpiar.
     searchContainer: {
     flexDirection: 'row',
@@ -650,43 +613,78 @@ const styles = StyleSheet.create({
     padding: 0,                 // Elimina el padding por defecto en Android.
     },
 
-  // ── CHIPS ─────────────────────────────────────────
-  // Contenedor del scroll horizontal de chips de categorías.
-    chipsRow: {
+  // ── SELECTOR DE CATEGORÍAS ─────────────────────────
+    categoryButtonsRow: {
+    flexDirection: 'row',
     gap: 8,
-    paddingVertical: 4,
-    marginBottom: 16,
+    marginBottom: 12,
+    paddingRight: 4,
     },
-  // Chip inactivo: borde gris, fondo blanco.
-    chip: {
-    borderRadius: 999,          // Cápsula perfecta (border-radius muy alto).
-    borderWidth: 1.5,
-    borderColor: '#d1d5db',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    categoryButton: {
+    minHeight: 40,
+    flexShrink: 0,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     },
-  // Chip activo: fondo y borde índigo (se aplica junto a 'chip').
-    chipActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    categoryButtonActive: {
+    backgroundColor: '#c7984e',
+    borderColor: '#c7984e',
     },
-    chipText: {
+    categoryButtonText: {
     color: '#374151',
-    fontWeight: '600',
     fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
     },
-    chipTextActive: {
-    color: '#fff',              // Texto blanco cuando el chip está activo.
+    categoryButtonTextActive: {
+    color: '#fff',
+    fontWeight: '700',
     },
 
   // ── ENCABEZADO SECCIÓN ────────────────────────────
-  // Fila "Productos Disponibles" + contador de resultados.
+  // Fila "Productos" + contador de resultados.
+    sectionLabelRow: {
+    marginBottom: 8,
+    },
+    sectionLabelChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff7e8',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+    },
+    sectionLabelText: {
+    color: '#a46d12',
+    fontSize: 12,
+    fontWeight: '700',
+    },
     sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    },
+    sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    },
+    sectionIconChip: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: '#fff7e8',
+    alignItems: 'center',
+    justifyContent: 'center',
     },
     sectionTitle: {
     fontSize: 18,
@@ -706,7 +704,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#f3f4f6',
-    shadowColor: '#6366f1',     // Sombra levemente índigo.
+    shadowColor: '#c7984e',     // Sombra dorada suave.
     shadowOpacity: 0.08,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -724,7 +722,7 @@ const styles = StyleSheet.create({
     position: 'absolute',       // Se posiciona sobre la imagen.
     top: 8,
     left: 8,
-    backgroundColor: 'rgba(99,102,241,0.85)', // Índigo semitransparente.
+    backgroundColor: 'rgba(145,105,52,0.88)', // Dorado viejo semitransparente.
     borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 3,
@@ -750,7 +748,7 @@ const styles = StyleSheet.create({
     cardPrecio: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#6366f1',
+    color: '#c7984e',
     marginTop: 2,
     },
   // Fila de botones: "Ver" y carrito.
@@ -765,14 +763,14 @@ const styles = StyleSheet.create({
     outlineBtn: {
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#6366f1',
+    borderColor: '#c7984e',
     paddingHorizontal: 12,
     paddingVertical: 7,
     alignItems: 'center',
     justifyContent: 'center',
     },
     outlineBtnText: {
-    color: '#6366f1',
+    color: '#c7984e',
     fontWeight: '700',
     fontSize: 12,
     },
@@ -780,7 +778,7 @@ const styles = StyleSheet.create({
     cartBtn: {
     flex: 1,
     borderRadius: 8,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#192847',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 7,
@@ -788,7 +786,7 @@ const styles = StyleSheet.create({
   // Botón primario relleno con ícono + texto en fila.
     primaryBtn: {
     borderRadius: 8,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#c7984e',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -841,7 +839,7 @@ const styles = StyleSheet.create({
     gap: 4,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#6366f1',
+    borderColor: '#c7984e',
     paddingHorizontal: 14,
     paddingVertical: 10,
     },
@@ -850,7 +848,7 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',     // Gris cuando está deshabilitado.
     },
     pagBtnText: {
-    color: '#6366f1',
+    color: '#c7984e',
     fontWeight: '600',
     fontSize: 13,
     },
@@ -888,7 +886,7 @@ const styles = StyleSheet.create({
   // Nombre de la categoría en pequeño sobre el título.
     modalCategoria: {
     fontSize: 11,
-    color: '#6366f1',
+    color: '#c7984e',
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -909,7 +907,7 @@ const styles = StyleSheet.create({
     modalPrecio: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#6366f1',
+    color: '#c7984e',
     },
   // Fila de stock: ícono + texto.
     modalStock: {

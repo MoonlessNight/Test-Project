@@ -349,11 +349,11 @@ export default function TabTwoScreen() {
   // ─────────────────────────────────────────────────────────────────────────
 
   // rolColor: devuelve el color de fondo según el rol del usuario.
-  //   administrador → índigo (#6366f1)
-  //   auxiliar      → cian (#06b6d4)
-  //   cliente       → verde (#10b981)
+  //   administrador → azul oscuro (#192847)
+  //   auxiliar      → dorado (#c7984e)
+  //   cliente       → dorado claro (#f5c271)
     const rolColor = (r?: string) =>
-    r === 'administrador' ? '#6366f1' : r === 'auxiliar' ? '#06b6d4' : '#10b981';
+    r === 'administrador' ? '#192847' : r === 'auxiliar' ? '#c7984e' : '#f5c271';
 
   // rolLabel: devuelve el texto legible del rol.
     const rolLabel = (r?: string) =>
@@ -405,7 +405,7 @@ export default function TabTwoScreen() {
         <View style={styles.card}>
           {/* Cabecera de la tarjeta con ícono de edición + título */}
             <View style={styles.cardHeader}>
-            <Ionicons name="create-outline" size={18} color="#6366f1" />
+            <Ionicons name="create-outline" size={18} color="#c7984e" />
             <Text style={styles.cardTitle}>Editar perfil</Text>
             </View>
           {/* Campo de nombre: placeholder muestra el valor actual */}
@@ -462,14 +462,14 @@ export default function TabTwoScreen() {
       {/* ── BOTÓN: PANEL DE ADMINISTRACIÓN (solo admin y auxiliar) ─────── */}
       {/* La condición evalúa el rol del usuario antes de renderizar */}
         {user?.rol === 'administrador' || user?.rol === 'auxiliar' ? (
-        <Pressable style={[styles.btn, { backgroundColor: '#6366f1' }]} onPress={() => routerPush('/admin/dashboard')}>
+        <Pressable style={[styles.btn, { backgroundColor: '#192847' }]} onPress={() => routerPush('/admin/dashboard')}>
             <Ionicons name="speedometer-outline" size={17} color="#fff" />
             <Text style={styles.btnTextWhite}>Panel de Administración</Text>
         </Pressable>
         ) : null}
 
       {/* ── BOTÓN: MIS PEDIDOS (visible para todos los roles) ───────────── */}
-        <Pressable style={[styles.btn, { backgroundColor: '#0a7ea4' }]} onPress={() => routerPush('/mis-pedidos')}>
+        <Pressable style={[styles.btn, { backgroundColor: '#c7984e' }]} onPress={() => routerPush('/mis-pedidos')}>
         <Ionicons name="receipt-outline" size={17} color="#fff" />
         <Text style={styles.btnTextWhite}>Mis Pedidos</Text>
         </Pressable>
@@ -489,17 +489,18 @@ export default function TabTwoScreen() {
 const styles = StyleSheet.create({
   // ── ESTILOS COMPARTIDOS ──────────────────────────────────────────────────
   scroll: { flex: 1 },              // ScrollView ocupa toda la pantalla.
-  container: { flex: 1 },           // Contenedor del formulario de login/registro.
+  container: { flex: 1, justifyContent: 'center', padding: 20 },           // Contenedor del formulario de login/registro.
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }, // Pantalla de carga centrada.
 
   // ── FORMULARIO DE LOGIN / REGISTRO ───────────────────────────────────────
-  formCard: { borderRadius: 12, padding: 16, gap: 12, margin: 20 }, // Tarjeta con fondo temático.
+  formWrapper: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 20 },
+  formCard: { borderRadius: 12, padding: 16, gap: 12, width: '100%' }, // Tarjeta con fondo temático.
   editSection: { borderRadius: 10, padding: 12, gap: 8, borderWidth: 1, borderColor: '#e0eaf3' }, // Sección de edición (no usada actualmente).
   editActions: { flexDirection: 'row', gap: 8, marginTop: 4 },      // Fila de botones Guardar/Cancelar.
     editBtn: { borderRadius: 10, borderWidth: 1, borderColor: '#0a7ea4', paddingVertical: 10, alignItems: 'center' },
     editBtnText: { color: '#0a7ea4', fontWeight: '600' },
   meta: { color: '#666', fontSize: 13 },                             // Texto secundario pequeño.
-  primaryButton: { borderRadius: 10, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a7ea4' }, // Botón "Entrar" / "Crear cuenta".
+  primaryButton: { borderRadius: 10, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#c7984e' }, // Botón "Entrar" / "Crear cuenta".
     primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
     secondaryButton: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: '#d5d5d5', paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
     logoutButton: { borderRadius: 10, backgroundColor: '#b93a32', paddingVertical: 12, alignItems: 'center', marginTop: 8 },
@@ -544,10 +545,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: 12, paddingVertical: 14,
     },
-  btnPrimary: { backgroundColor: '#6366f1' },                          // Relleno índigo.
-  btnOutline: { borderWidth: 2, borderColor: '#6366f1', backgroundColor: '#fff' }, // Solo borde índigo.
+  btnPrimary: { backgroundColor: '#192847' },                          // Relleno oscuro.
+  btnOutline: { borderWidth: 2, borderColor: '#c7984e', backgroundColor: '#fff' }, // Solo borde dorado.
   btnTextWhite: { color: '#fff', fontWeight: '700', fontSize: 15 },    // Texto blanco para botones rellenos.
-  btnTextOutline: { color: '#6366f1', fontWeight: '700', fontSize: 15 }, // Texto índigo para botones outline.
+  btnTextOutline: { color: '#c7984e', fontWeight: '700', fontSize: 15 }, // Texto dorado para botones outline.
 
   // Banner verde de éxito (perfil actualizado).
     successBanner: {
