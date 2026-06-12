@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedText } from '../../components/themed-text';
 import apiClient from '../../src/api/apiClient';
@@ -40,17 +40,12 @@ export default function AdminCategoriasScreen() {
     const [categorias, setCategorias] = useState<Categoria[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
-    const [busqueda, setBusqueda] = useState('');
 
     const fetchCategorias = async (search = '') => {
         setLoading(true);
         setErrorMessage('');
         try {
-            const params: string[] = [];
-            if (search.trim()) params.push(`buscar=${encodeURIComponent(search.trim())}`);
-            const url = `/admin/categorias?${params.length ? params.join('&') : ''}`;
-            
-            const res = await apiClient.get(url);
+            const res = await apiClient.get('/admin/categorias');
             const categoriasData: Categoria[] = res.data?.data?.categorias || [];
             setCategorias(categoriasData);
         } catch (error: unknown) {
@@ -61,7 +56,7 @@ export default function AdminCategoriasScreen() {
     };
 
     useEffect(() => {
-        fetchCategorias('');
+        fetchCategorias();
     }, []);
 
     const isAdmin = user?.rol === 'administrador';
@@ -69,22 +64,9 @@ export default function AdminCategoriasScreen() {
     // ── RENDERIZADO ───────────────────────────────────────────────────────────
     return (
         <View style={styles.container}>
-            <ThemedText type="title">Categorías</ThemedText>
-
-            {/* ── BARRA DE BÚSQUEDA ──────────────────────────────────────────── */}
-            <View style={styles.searchRow}>
-                <TextInput
-                    placeholder="Buscar categoría..."
-                    value={busqueda}
-                    onChangeText={(text) => {
-                        setBusqueda(text);
-                        fetchCategorias(text);
-                    }}
-                    style={styles.input}
-                />
-                <Pressable style={styles.searchBtn} onPress={() => fetchCategorias(busqueda)}>
-                    <ThemedText style={styles.searchBtnText}>Buscar</ThemedText>
-                </Pressable>
+            <View style={styles.header}>
+                <ThemedText type="title">Categorías</ThemedText>
+                <ThemedText style={styles.subtitle}>Administra tus categorías de forma rápida y clara.</ThemedText>
             </View>
 
             {/* Botón para crear una nueva categoría */}
@@ -92,7 +74,7 @@ export default function AdminCategoriasScreen() {
                 style={styles.createBtn} 
                 onPress={() => push('/admin/categoria-form')}
             >
-                <ThemedText style={styles.createBtnText}>+ Crear categoría</ThemedText>
+                <ThemedText style={styles.createBtnText}>+ Crear</ThemedText>
             </Pressable>
 
             {/* Spinner de carga */}
@@ -118,51 +100,35 @@ export default function AdminCategoriasScreen() {
                             onPress={() => pushParams('/admin/categoria-form', { categoria: JSON.stringify(item) })}
                         >
                             <View style={styles.cardBody}>
-                                <ThemedText type="defaultSemiBold">{item.nombre}</ThemedText>
-                                <ThemedText numberOfLines={2}>{item.descripcion || 'Sin descripción'}</ThemedText>
-                                <ThemedText style={styles.meta}>{item.activo ? 'Activo' : 'Inactivo'}</ThemedText>
+                                <ThemedText type="defaultSemiBold" style={styles.cardTitle}>{item.nombre}</ThemedText>
+                                <ThemedText style={styles.cardDescription} numberOfLines={2}>{item.descripcion || 'Sin descripción'}</ThemedText>
                             </View>
                         </Pressable>
 
-                        {/* ── BOTONES DE ACCIÓN (solo admin) ──────────────────────── */}
+                        {/* ── BOTÓN DE ESTADO (solo admin) ──────────────────────── */}
                         {isAdmin && (
                             <View style={styles.actionsRow}>
                                 <Pressable
-                                    style={[styles.actionBtn, { backgroundColor: item.activo ? '#b93a32' : '#218f4c' }]}
+                                    style={[styles.actionBtn, styles.viewBtn]}
+                                    onPress={() => pushParams('/admin/categoria-form', { categoria: JSON.stringify(item) })}
+                                >
+                                    <ThemedText style={[styles.actionBtnText, styles.viewBtnText]}>Ver</ThemedText>
+                                </Pressable>
+                                <Pressable
+                                    style={[
+                                        styles.actionBtn,
+                                        item.activo ? styles.deactivateBtn : styles.activateBtn,
+                                    ]}
                                     onPress={async () => {
                                         try {
                                             await apiClient.patch(`/admin/categorias/${item.id}/toggle`);
-                                            fetchCategorias(busqueda);
+                                            fetchCategorias();
                                         } catch {
                                             Alert.alert('Error', 'No se pudo cambiar el estado');
                                         }
                                     }}
                                 >
                                     <ThemedText style={styles.actionBtnText}>{item.activo ? 'Desactivar' : 'Activar'}</ThemedText>
-                                </Pressable>
-
-                                <Pressable
-                                    style={[styles.actionBtn, { backgroundColor: '#b93a32', opacity: 0.5 }]}
-                                    disabled
-                                    onPress={() => {
-                                        Alert.alert('Eliminar categoría', '¿Está seguro de eliminar esta categoría?', [
-                                            { text: 'Cancelar', style: 'cancel' },
-                                            {
-                                                text: 'Eliminar',
-                                                style: 'destructive',
-                                                onPress: async () => {
-                                                    try {
-                                                        await apiClient.delete(`/admin/categorias/${item.id}`);
-                                                        fetchCategorias(busqueda);
-                                                    } catch {
-                                                        Alert.alert('Error', 'No se pudo eliminar la categoría');
-                                                    }
-                                                },
-                                            },
-                                        ]);
-                                    }}
-                                >
-                                    <ThemedText style={styles.actionBtnText}>Eliminar</ThemedText>
                                 </Pressable>
                             </View>
                         )}
@@ -177,33 +143,23 @@ export default function AdminCategoriasScreen() {
 
 // ── ESTILOS ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, gap: 10 },
+    container: { flex: 1, padding: 14, gap: 10, backgroundColor: '#f8fafc' },
+    header: { gap: 4, marginBottom: 10 },
     centered: { alignItems: 'center', gap: 10, marginVertical: 20 },
-    error: { color: '#b93a32' },
-    searchRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-    input: { flex: 1, borderWidth: 1, borderColor: '#d5d5d5', borderRadius: 10, paddingHorizontal: 12, backgroundColor: '#fff' },
-    searchBtn: { backgroundColor: '#0a7ea4', borderRadius: 10, paddingHorizontal: 14, justifyContent: 'center' },
-    searchBtnText: { color: '#fff', fontWeight: '700' },
-    createBtn: { backgroundColor: '#218f4c', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
-    createBtnText: { color: '#fff', fontWeight: '700' },
+    subtitle: { color: '#64748b', fontSize: 13, lineHeight: 18, maxWidth: '92%' },
+    error: { color: '#ef4444' },
+    createBtn: { backgroundColor: '#0f172a', borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+    createBtnText: { color: '#fff', fontWeight: '700', letterSpacing: 0.4 },
     list: { flex: 1 },
-    card: { flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: '#e8e8e8', borderRadius: 12, padding: 10, backgroundColor: '#fff', marginBottom: 8, alignItems: 'center' },
-    actionsRow: { flexDirection: 'column', gap: 6, marginLeft: 8 },
-    actionBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, marginBottom: 2 },
-    actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-    cardBody: { flex: 1, gap: 2 },
-    meta: { color: '#666', fontSize: 12 },
+    card: { borderRadius: 16, padding: 14, backgroundColor: '#fff', marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+    cardBody: { gap: 8 },
+    cardTitle: { fontSize: 15, color: '#0f172a' },
+    cardDescription: { color: '#475569', fontSize: 13, lineHeight: 18 },
+    actionsRow: { marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+    actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
+    actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    viewBtn: { backgroundColor: '#e2e8f0' },
+    viewBtnText: { color: '#0f172a' },
+    deactivateBtn: { backgroundColor: '#047857' },
+    activateBtn: { backgroundColor: '#2563eb' },
 });
-
-export async function activarProducto(id) {
-    // El backend implementa un toggle; llamamos al mismo endpoint para activar.
-    const res = await api.patch(`/admin/productos/${id}/toggle`);
-    return res.data;
-}
-
-//marca un producto como inactivo
-export async function desactivarProducto(id) {
-    // El backend implementa un toggle; llamamos al mismo endpoint para desactivar.
-    const res = await api.patch(`/admin/productos/${id}/toggle`);
-    return res.data;
-}

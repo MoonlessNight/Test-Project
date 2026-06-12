@@ -363,19 +363,18 @@ export default function HomeScreen() {
   // FlatList llama esta función por cada ítem de productosVisibles.
   // Recibe { item: producto, index } y devuelve el JSX de la tarjeta.
     const renderProducto = ({ item: producto, index }: { item: any; index: number }) => (
-    <View
+    <Pressable
+        onPress={() => setProductoDetalle(producto)}
+        android_ripple={{ color: 'rgba(0,0,0,0.08)' }}
         style={[
         styles.card,
-        // Aplica margen para separar columnas:
-        //   columna izquierda (índice par) → margen derecho
-        //   columna derecha (índice impar) → margen izquierdo
         index % 2 === 0 ? { marginRight: CARD_GAP / 2 } : { marginLeft: CARD_GAP / 2 },
         ]}>
       {/* Imagen del producto: buildImageUrl construye la URL completa */}
         <Image
         source={{ uri: catalogoService.buildImageUrl(producto.imagen) }}
         style={styles.cardImage}
-        resizeMode="cover" /* Recorta la imagen para que llene el espacio sin deformarse. */
+        resizeMode="cover"
         />
       {/* Badge de categoría superpuesto sobre la imagen (position: absolute) */}
         <View style={styles.cardBadge}>
@@ -383,29 +382,21 @@ export default function HomeScreen() {
             {producto.Categoria?.nombre || producto.categoria?.nombre || 'Sin categoría'}
         </ThemedText>
         </View>
-      {/* Cuerpo de la tarjeta: nombre, precio y botones */}
+      {/* Cuerpo de la tarjeta: nombre, precio y carrito */}
         <View style={styles.cardBody}>
-        {/* numberOfLines={2}: el nombre se trunca a 2 líneas máximo */}
         <ThemedText style={styles.cardNombre} numberOfLines={2}>
             {producto.nombre}
         </ThemedText>
-        {/* Precio formateado en pesos colombianos */}
         <ThemedText style={styles.cardPrecio}>
             ${Number(producto.precio || 0).toLocaleString('es-CO')}
         </ThemedText>
-        {/* Fila de botones: "Ver" (detalle) y carrito */}
         <View style={styles.cardActions}>
-          {/* Botón "Ver": abre el modal de detalle con este producto */}
-            <Pressable style={styles.outlineBtn} onPress={() => setProductoDetalle(producto)}>
-            <ThemedText style={styles.outlineBtnText}>Ver</ThemedText>
-            </Pressable>
-          {/* Botón del carrito: agrega directamente 1 unidad */}
             <Pressable style={styles.cartBtn} onPress={() => handleAgregarAlCarrito(producto)}>
             <Ionicons name="cart" size={16} color="#fff" />
             </Pressable>
         </View>
         </View>
-    </View>
+    </Pressable>
     );
 
   // ── RENDERIZADO PRINCIPAL ────────────────────────────────────────────────
@@ -448,16 +439,18 @@ export default function HomeScreen() {
           visible={true}
           transparent
           animationType="slide"
+          statusBarTranslucent
           onRequestClose={() => setProductoDetalle(null)}>
           {/* Fondo semitransparente negro que cubre toda la pantalla */}
-          <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setProductoDetalle(null)}>
             {/* Tarjeta blanca con esquinas superiores redondeadas */}
-            <ThemedView style={styles.modalCard}>
-              {/* Contenido scrolleable */}
-              <ScrollView
-                scrollEnabled={true}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 16 }}>
+            <Pressable style={styles.modalCardWrapper} onPress={() => {}}>
+              <ThemedView style={styles.modalCard}>
+                {/* Contenido scrolleable */}
+                <ScrollView
+                  scrollEnabled={true}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 16 }}>
                 {/* Imagen grande del producto */}
                 <Image
                   source={{ uri: catalogoService.buildImageUrl(productoDetalle.imagen) }}
@@ -508,7 +501,8 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </ThemedView>
-          </View>
+            </Pressable>
+          </Pressable>
         </Modal>
       )}
     </>
@@ -869,10 +863,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.45)',
     },
-  // Tarjeta blanca del modal con bordes superiores redondeados (sheet style).
-    modalCard: {
+  // Contenedor presionable que evita que el toque en el modal cierre el overlay.
+    modalCardWrapper: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    overflow: 'hidden',
+    },
+  // Tarjeta blanca del modal con bordes superiores redondeados (sheet style).
+    modalCard: {
     padding: 20,
     gap: 10,
     backgroundColor: '#fff',

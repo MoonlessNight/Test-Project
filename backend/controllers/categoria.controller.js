@@ -10,9 +10,11 @@
 // Importa el modelo Categoria desde models/Categoria.js
 // Representa la tabla 'Categoria' en la BD.
 const Categoria = require('../models/Categoria');
+const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 // Importa el modelo Subcategoria desde models/Subcategoria.js
-// Representa la tabla 'Subcategoria' en la BD.
+// Representa la tabla 'Subcategoría' en la BD.
 const Subcategoria = require('../models/Subcategoria');
 
 // Importa el modelo Producto desde models/Producto.js
@@ -29,8 +31,8 @@ const Producto = require('../models/Producto');
  */
 const getCategorias = async (req, res) => {
   try {
-    // Extrae los query params de la URL (?activo=true&incluirSubcategorias=true)
-    const { activo, incluirSubcategorias } = req.query;
+    // Extrae los query params de la URL (?activo=true&incluirSubcategorias=true&buscar=texto)
+    const { activo, incluirSubcategorias, buscar } = req.query;
     
     // Objeto de opciones para la consulta Sequelize.
     // order define el ORDER BY en SQL → orden alfabético A-Z
@@ -38,10 +40,32 @@ const getCategorias = async (req, res) => {
       order: [['nombre', 'ASC']]
     };
     
-    // Si se envió el parámetro 'activo', agrega filtro WHERE.
-    // activo === 'true' convierte el string a booleano (query params siempre son strings)
+    // Construye los filtros de búsqueda opcionales.
+    const filtros = {};
+
     if (activo !== undefined) {
-      opciones.where = { activo: activo === 'true' };
+      filtros.activo = activo === 'true';
+    }
+
+    if (buscar && String(buscar).trim()) {
+      const textoBusqueda = String(buscar).trim();
+      filtros.nombre = {
+        [Op.like]: `%${textoBusqueda}%`
+      };
+
+      opciones.order = [
+        [sequelize.literal(`CASE
+            WHEN LOWER(nombre) = LOWER(${sequelize.escape(textoBusqueda)}) THEN 0
+            WHEN LOWER(nombre) LIKE LOWER(${sequelize.escape(`${textoBusqueda}%`)}) THEN 1
+            WHEN LOWER(nombre) LIKE LOWER(${sequelize.escape(`%${textoBusqueda}%`)}) THEN 2
+            ELSE 3
+          END`), 'ASC'],
+        ['nombre', 'ASC']
+      ];
+    }
+
+    if (Object.keys(filtros).length > 0) {
+      opciones.where = filtros;
     }
     
     // Si se pidió incluir subcategorías, agrega un JOIN con la tabla Subcategoria
