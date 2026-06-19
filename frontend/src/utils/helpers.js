@@ -52,7 +52,10 @@ export const formatDateTime = (dateString) => {
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return '/placeholder.png';
   if (imagePath.startsWith('http')) return imagePath;
-  return `http://localhost:5000/${imagePath}`;
+  
+  const cleanPath = imagePath.replace(/^\//, '');
+  const finalPath = cleanPath.startsWith('uploads/') ? cleanPath : `uploads/${cleanPath}`;
+  return `http://localhost:5000/${finalPath}`;
 };
 
 /**

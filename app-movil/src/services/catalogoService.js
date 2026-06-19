@@ -5,6 +5,7 @@
  */
 
 import apiClient from '../api/apiClient';
+import { API_ORIGIN_URL } from '../utils/constants';
 
 const catalogoService = {
     //consulta la lista de categorias disponibles para filtros de navegacion
@@ -12,6 +13,13 @@ const catalogoService = {
         const response = await apiClient.get('/catalogo/categorias');
         const payload = response.data?.data || response.data || {};
         return payload.categorias || [];
+    },
+
+    // Consulta la lista de subcategorías de una categoría específica
+    getSubcategoriasByCategoria: async (categoriaId) => {
+        const response = await apiClient.get(`/catalogo/categorias/${categoriaId}/subcategorias`);
+        const payload = response.data?.data || response.data || {};
+        return payload.subcategorias || [];
     },
 
     //consulta productos del catalogo y acepta filtros de busqueda
@@ -33,8 +41,11 @@ const catalogoService = {
             return path;
         }
 
-        const origin = 'http://10.0.2.2:5000';
-        return `${origin}/${path.replace(/^\//, '')}`;
+        // Si la ruta del archivo no empieza con 'uploads/', lo agregamos para conectar con el backend
+        const cleanPath = path.replace(/^\//, '');
+        const finalPath = cleanPath.startsWith('uploads/') ? cleanPath : `uploads/${cleanPath}`;
+
+        return `${API_ORIGIN_URL}/${finalPath}`;
     },
 };
 

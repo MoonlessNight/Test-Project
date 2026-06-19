@@ -17,7 +17,7 @@
 */
 
 //manejo de variables de estado local
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 //importar componentes 
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -27,7 +27,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from '../../src/context/AuthContext';
 //themedText : texto q aplica colores del tema del dispositivo de manera automatica claro u oscuro
 import { ThemedText } from "../../components/themed-text";
-//themedView : color de fondo automatico segun el tema del dispositivo
+import ConfirmModal from '../../components/confirm-modal';
 import { ThemedView } from "../../components/themed-view";
 
 /**
@@ -76,6 +76,11 @@ export default function TabTwoScreen() {
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccesMessage] = useState('');
 
+    // Estados para mostrar u ocultar contraseñas
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showEditPassword, setShowEditPassword] = useState(false);
+
     //estado de edicion de perfil
     //editMode true mostrar campos editables false modo lectura
     const [editMode, setEditMode] = useState(false);
@@ -88,6 +93,15 @@ export default function TabTwoScreen() {
     //mensajes del formulario de edicionm de perfil
     const [perfilError, setPerfilError] = useState('');
     const [perfilSuccess, setPerfilSuccess] = useState('');
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+    // Sincronizar datos del perfil al cargar o cambiar el modo de edición
+    useEffect(() => {
+        if (user) {
+            setEditNombre(user.nombre || '');
+            setEditEmail(user.email || '');
+        }
+    }, [user, editMode]);
 
     //function resetFeedback
     //Limpia los mensajes de error y exito del formulario login y registro 
@@ -97,8 +111,13 @@ export default function TabTwoScreen() {
     };
 
     //funcion: handleLogout
-    //cierra la sesion y resetea todos los campos el usuario vuelva a ver formulario
-    const handleLogout = async () => {
+    //abre la confirmacion
+    const handleLogout = () => {
+        setShowLogoutConfirm(true);
+    };
+
+    const confirmLogout = async () => {
+        setShowLogoutConfirm(false);
         await logout(); //llama el contexto de cerrar sesion 
         setEmail('');
         setPassword('');
@@ -188,28 +207,28 @@ export default function TabTwoScreen() {
      * valida y envia los cambios al perfil del usuario autenticado
      */
 
-    const handleGuardarPerfil = async  () => {
+    const handleGuardarPerfil = async () => {
         setPerfilError('');
         setPerfilSuccess('');
-        //al menos uno de los tres campos debe estar modificado
-        if (!editNombre.trim() && !editEmail.trim() && !editPassword.trim()) {
-            setPerfilError('Modifica al menos un campo ');
+        
+        const nombreCambiado = editNombre.trim() !== (user?.nombre || '');
+        const passwordCambiado = editPassword.trim().length > 0;
+
+        if (!nombreCambiado && !passwordCambiado) {
+            setPerfilError('Modifica al menos un campo para guardar');
             return;
         }
+
         setSavingPerfil(true);
         try {
-            //solo envia los campos que tiene valor los vacios se emiten
-            const data : { nombre?: string, email?: string; password?: string } = {};
-            if (editNombre.trim()) data.nombre = editNombre.trim();
-            if (editPassword.trim()) data.password = editPassword.trim();
-            await updatePerfil(data); //llamda al contexto que hace put/usuarios/perfil
+            const data: { nombre?: string; password?: string } = {};
+            if (nombreCambiado) data.nombre = editNombre.trim();
+            if (passwordCambiado) data.password = editPassword.trim();
+
+            await updatePerfil(data);
             setPerfilSuccess('perfil actualizado correctamente');
-            setEditMode(false); //cierra el formulario de edicion
-            //limpia campos de edicion
-            setEditNombre('');
-            setEditEmail('');
+            setEditMode(false);
             setEditPassword('');
-            
         } catch (error: unknown) {
             setPerfilError((error as { message?: string })?.message || 'no fue posible actualizar el perfil');
         } finally {
@@ -230,344 +249,390 @@ export default function TabTwoScreen() {
     }
 
   // ── MODO: NO AUTENTICADO → FORMULARIO DE LOGIN / REGISTRO ────────────────
-    if (!isAuthenticated) {
+  if (!isAuthenticated) {
     return (
-      // KeyboardAvoidingView: cuando aparece el teclado virtual, mueve el
-      // contenido hacia arriba para que los campos no queden tapados.
-      // En iOS usa 'padding', en Android no es necesario (undefined).
-        <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* ThemedView: aplica el color de fondo del tema (claro/oscuro) */}
-        <ThemedView style={styles.formCard}>
-          {/* Título dinámico: "Registro" o "Iniciar sesion" según el modo */}
-            <ThemedText type="title">{isRegisterMode ? 'Registro' : 'Iniciar sesion'}</ThemedText>
+      <KeyboardAvoidingView
+        style={styles.scroll}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.authContainer}>
+            <ThemedView style={styles.formCard}>
+              <ThemedText style={styles.authTitle}>
+                {isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}
+              </ThemedText>
+              <ThemedText style={styles.authSubtitle}>
+                {isRegisterMode ? 'Regístrate para realizar tus pedidos' : 'Ingresa tus datos para continuar'}
+              </ThemedText>
 
-          {/* Campos adicionales SOLO en modo registro */}
-            {isRegisterMode ? (
-            <>
-                <TextInput
-                placeholder="Nombre *"
-                value={nombre}
-                onChangeText={setNombre}
+              {isRegisterMode ? (
+                <>
+                  <TextInput
+                    placeholder="Nombre *"
+                    placeholderTextColor="#b8a99a"
+                    value={nombre}
+                    onChangeText={setNombre}
+                    style={styles.input}
+                  />
+                  <TextInput
+                    placeholder="Apellido *"
+                    placeholderTextColor="#b8a99a"
+                    value={apellido}
+                    onChangeText={setApellido}
+                    style={styles.input}
+                  />
+                </>
+              ) : null}
+
+              <TextInput
+                placeholder="Correo *"
+                placeholderTextColor="#b8a99a"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
                 style={styles.input}
-                />
+              />
+
+              <View style={styles.passwordContainer}>
                 <TextInput
-                placeholder="Apellido *"
-                value={apellido}
-                onChangeText={setApellido}
-                style={styles.input}
+                  placeholder="Contraseña *"
+                  placeholderTextColor="#b8a99a"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  style={styles.passwordInput}
                 />
-            </>
-            ) : null}
+                <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#9e8879" />
+                </Pressable>
+              </View>
 
-          {/* Campo de correo: compartido entre login y registro */}
-            <TextInput
-            placeholder="Correo *"
-            autoCapitalize="none"        /* No convierte a mayúsculas el primer caracter. */
-            keyboardType="email-address" /* Muestra teclado con @ y .com fácilmente. */
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-            />
+              {isRegisterMode ? (
+                <>
+                  <View style={styles.passwordContainer}>
+                    <TextInput
+                      placeholder="Confirmar contraseña *"
+                      placeholderTextColor="#b8a99a"
+                      secureTextEntry={!showConfirmPassword}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      style={styles.passwordInput}
+                    />
+                    <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+                      <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#9e8879" />
+                    </Pressable>
+                  </View>
+                  <TextInput
+                    placeholder="Teléfono (ej: 3001234567)"
+                    placeholderTextColor="#b8a99a"
+                    keyboardType="phone-pad"
+                    value={telefono}
+                    onChangeText={setTelefono}
+                    maxLength={10}
+                    style={styles.input}
+                  />
+                  <TextInput
+                    placeholder="Dirección"
+                    placeholderTextColor="#b8a99a"
+                    value={direccion}
+                    onChangeText={setDireccion}
+                    style={styles.input}
+                  />
+                </>
+              ) : null}
 
-          {/* Campo de contraseña: texto oculto con puntos */}
-            <TextInput
-            placeholder="Contrasena *"
-            secureTextEntry               /* Oculta el texto ingresado. */
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-            />
+              {errorMessage ? (
+                <View style={styles.errorBanner}>
+                  <Ionicons name="alert-circle" size={15} color="#e07070" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              ) : null}
+              {successMessage ? (
+                <View style={styles.successBanner}>
+                  <Ionicons name="checkmark-circle" size={15} color="#2d6a4f" />
+                  <Text style={styles.successText}>{successMessage}</Text>
+                </View>
+              ) : null}
 
-          {/* Campos adicionales SOLO en modo registro */}
-            {isRegisterMode ? (
-            <>
-              {/* Confirmar contraseña: debe coincidir con el campo anterior */}
-                <TextInput
-                placeholder="Confirmar contrasena *"
-                secureTextEntry
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                style={styles.input}
-                />
-              {/* Teléfono: opcional, solo números, máximo 10 dígitos */}
-                <TextInput
-                placeholder="Telefono (ej: 3001234567)"
-                keyboardType="phone-pad"
-                value={telefono}
-                onChangeText={setTelefono}
-                maxLength={10}
-                style={styles.input}
-                />
-              {/* Dirección: opcional */}
-                <TextInput
-                placeholder="Direccion"
-                value={direccion}
-                onChangeText={setDireccion}
-                style={styles.input}
-                />
-            </>
-            ) : null}
+              <Pressable style={styles.primaryButton} onPress={handleSubmit} disabled={loadingSubmit}>
+                {loadingSubmit ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    {isRegisterMode ? 'Crear cuenta' : 'Entrar'}
+                  </Text>
+                )}
+              </Pressable>
 
-          {/* Mensaje de error (en rojo) si la validación o el backend fallan */}
-            {errorMessage ? <ThemedText style={styles.error}>{errorMessage}</ThemedText> : null}
-          {/* Mensaje de éxito (en verde) tras registro o login exitoso */}
-            {successMessage ? <ThemedText style={styles.success}>{successMessage}</ThemedText> : null}
-
-            {/* Botón principal: "Crear cuenta" o "Entrar" según el modo.
-              disabled durante el proceso para evitar envíos múltiples. */}
-            <Pressable style={styles.primaryButton} onPress={handleSubmit} disabled={loadingSubmit}>
-            {loadingSubmit ? (
-              /* Spinner mientras se procesa la solicitud. */
-                <ActivityIndicator color="#fff" />
-            ) : (
-                <Text style={styles.primaryButtonText}>
-                {isRegisterMode ? 'Crear cuenta' : 'Entrar'}
+              <Pressable
+                onPress={() => {
+                  resetFeedback();
+                  setIsRegisterMode((prev) => !prev);
+                }}
+                style={styles.switchModeButton}
+              >
+                <Text style={styles.switchModeText}>
+                  {isRegisterMode ? 'Ya tengo cuenta, iniciar sesión' : 'No tengo cuenta, registrarme'}
                 </Text>
-            )}
-            </Pressable>
-
-          {/* Enlace para alternar entre login y registro */}
-            <Pressable
-            onPress={() => {
-              resetFeedback();                       // Limpia mensajes al cambiar de modo.
-              setIsRegisterMode((prev) => !prev);    // Alterna el modo.
-            }}>
-            <ThemedText type="link">
-                {isRegisterMode ? 'Ya tengo cuenta, iniciar sesion' : 'No tengo cuenta, registrarme'}
-            </ThemedText>
-            </Pressable>
-        </ThemedView>
-        </KeyboardAvoidingView>
+              </Pressable>
+            </ThemedView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
-    }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // FUNCIONES AUXILIARES DEL PERFIL (solo se usan cuando el usuario está autenticado)
-  // Se definen aquí (no al inicio) porque solo se necesitan en el modo autenticado.
   // ─────────────────────────────────────────────────────────────────────────
 
   // rolColor: devuelve el color de fondo según el rol del usuario.
-  //   administrador → azul oscuro (#192847)
-  //   auxiliar      → dorado (#c7984e)
-  //   cliente       → dorado claro (#f5c271)
-    const rolColor = (r?: string) =>
+  const rolColor = (r?: string) =>
     r === 'administrador' ? '#192847' : r === 'auxiliar' ? '#c7984e' : '#f5c271';
 
   // rolLabel: devuelve el texto legible del rol.
-    const rolLabel = (r?: string) =>
+  const rolLabel = (r?: string) =>
     r === 'administrador' ? 'Administrador' : r === 'auxiliar' ? 'Auxiliar' : 'Cliente';
 
   // rolIcon: devuelve el nombre del ícono Ionicons según el rol.
-  //   keyof typeof Ionicons.glyphMap → tipo correcto para los nombres de íconos.
-    const rolIcon = (r?: string): keyof typeof Ionicons.glyphMap =>
+  const rolIcon = (r?: string): keyof typeof Ionicons.glyphMap =>
     r === 'administrador' ? 'shield-checkmark' : r === 'auxiliar' ? 'construct' : 'person';
 
   // ── MODO: AUTENTICADO → VISTA DE PERFIL ─────────────────────────────────
-    return (
-    // ScrollView con espacio de 12dp entre cada sección y padding inferior de 32dp.
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-
-      {/* ── ENCABEZADO DE PERFIL ────────────────────────────────────────── */}
-      {/* El color de fondo cambia dinámicamente según el rol del usuario. */}
-        <View style={[styles.profileHeader, { backgroundColor: rolColor(user?.rol) }]}>
-        {/* Avatar: círculo blanco con el ícono del rol en el color del rol */}
-        <View style={styles.avatarCircle}>
-            <Ionicons name={rolIcon(user?.rol)} size={40} color={rolColor(user?.rol)} />
-        </View>
-        {/* Columna de datos: nombre, email y badge del rol */}
-        <View style={{ flex: 1 }}>
-          {/* Nombre del usuario en blanco negrita */}
-            <Text style={styles.profileName}>{user?.nombre || 'Usuario'}</Text>
-          {/* Email del usuario en blanco semitransparente */}
-            <Text style={styles.profileEmail}>{user?.email || '-'}</Text>
-          {/* Badge (pastilla) con ícono + etiqueta del rol */}
-            <View style={styles.roleBadge}>
-            <Ionicons name={rolIcon(user?.rol)} size={12} color="#fff" />
-            <Text style={styles.roleBadgeText}>{rolLabel(user?.rol)}</Text>
-            </View>
-        </View>
+  return (
+    <ScrollView 
+      style={styles.scroll} 
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.profileContainer}>
+        {/* ── ENCABEZADO DE PERFIL CENTRADO ── */}
+        <View style={styles.profileCard}>
+          {/* Avatar: círculo con el ícono del rol con un fondo translúcido y elegante */}
+          <View style={[styles.avatarCircle, { backgroundColor: rolColor(user?.rol) + '12', borderColor: rolColor(user?.rol) + '30', borderWidth: 1 }]}>
+            <Ionicons name={rolIcon(user?.rol)} size={32} color={rolColor(user?.rol)} />
+          </View>
+          <Text style={styles.profileName}>{user?.nombre || 'Usuario'}</Text>
+          <Text style={styles.profileEmail}>{user?.email || '-'}</Text>
+          
+          <View style={[styles.roleBadge, { backgroundColor: rolColor(user?.rol) + '15' }]}>
+            <Ionicons name={rolIcon(user?.rol)} size={12} color={rolColor(user?.rol)} />
+            <Text style={[styles.roleBadgeText, { color: rolColor(user?.rol) }]}>{rolLabel(user?.rol)}</Text>
+          </View>
         </View>
 
-      {/* ── BANNER DE ÉXITO (tras actualizar perfil) ────────────────────── */}
-      {/* Solo visible si perfilSuccess tiene texto */}
+        {/* ── BANNER DE ÉXITO ── */}
         {perfilSuccess ? (
-        <View style={styles.successBanner}>
-            <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+          <View style={styles.successBanner}>
+            <Ionicons name="checkmark-circle" size={16} color="#2d6a4f" />
             <Text style={styles.successText}>{perfilSuccess}</Text>
-        </View>
+          </View>
         ) : null}
 
-      {/* ── SECCIÓN: EDITAR PERFIL ──────────────────────────────────────── */}
-        {editMode ? (
-        // ── FORMULARIO DE EDICIÓN ──────────────────────────────────────────
-        <View style={styles.card}>
-          {/* Cabecera de la tarjeta con ícono de edición + título */}
+        {/* ── SECCIÓN DE ACCIONES (MENÚ UNIFICADO) ── */}
+        <View style={styles.menuContainer}>
+          {/* Panel de administración */}
+          {(user?.rol === 'administrador' || user?.rol === 'auxiliar') && (
+            <Pressable 
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]} 
+              onPress={() => routerPush('/admin/dashboard')}
+            >
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuIconBox, { backgroundColor: '#19284710' }]}>
+                  <Ionicons name="speedometer-outline" size={18} color="#192847" />
+                </View>
+                <Text style={styles.menuItemText}>Panel de Administración</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#b8a99a" />
+            </Pressable>
+          )}
+
+          {/* Mis Pedidos */}
+          <Pressable 
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]} 
+            onPress={() => routerPush('/mis-pedidos')}
+          >
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIconBox, { backgroundColor: '#d4956a10' }]}>
+                <Ionicons name="receipt-outline" size={18} color="#d4956a" />
+              </View>
+              <Text style={styles.menuItemText}>Mis Pedidos</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#b8a99a" />
+          </Pressable>
+
+          {/* Editar Perfil */}
+          <Pressable 
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]} 
+            onPress={() => { setEditMode(!editMode); setPerfilSuccess(''); }}
+          >
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIconBox, { backgroundColor: '#9e887910' }]}>
+                <Ionicons name="create-outline" size={18} color="#9e8879" />
+              </View>
+              <Text style={styles.menuItemText}>Editar Perfil</Text>
+            </View>
+            <Ionicons name={editMode ? "chevron-down" : "chevron-forward"} size={16} color="#b8a99a" />
+          </Pressable>
+
+          {/* Cerrar sesión */}
+          <Pressable 
+            style={({ pressed }) => [
+              styles.menuItem, 
+              styles.menuItemLast,
+              pressed && styles.menuItemPressed
+            ]} 
+            onPress={handleLogout}
+          >
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIconBox, { backgroundColor: '#e0707010' }]}>
+                <Ionicons name="log-out-outline" size={18} color="#e07070" />
+              </View>
+              <Text style={[styles.menuItemText, { color: '#e07070' }]}>Cerrar Sesión</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#e0707080" />
+          </Pressable>
+        </View>
+
+        {/* ── FORMULARIO DE EDICIÓN DE PERFIL ── */}
+        {editMode && (
+          <View style={styles.editCard}>
             <View style={styles.cardHeader}>
-            <Ionicons name="create-outline" size={18} color="#c7984e" />
-            <Text style={styles.cardTitle}>Editar perfil</Text>
+              <Ionicons name="create-outline" size={18} color="#d4956a" />
+              <Text style={styles.cardTitle}>Editar mis datos</Text>
             </View>
-          {/* Campo de nombre: placeholder muestra el valor actual */}
+            
             <TextInput
-            placeholder={`Nombre actual: ${user?.nombre || ''}`}
-            value={editNombre}
-            onChangeText={setEditNombre}
-            style={styles.input}
+              placeholder={`Nombre: ${user?.nombre || ''}`}
+              placeholderTextColor="#b8a99a"
+              value={editNombre}
+              onChangeText={setEditNombre}
+              style={styles.input}
             />
-          {/* Campo de email: teclado email, sin mayúsculas automáticas */}
             <TextInput
-            placeholder={`Email actual: ${user?.email || ''}`}
-            value={editEmail}
-            onChangeText={setEditEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            style={styles.input}
+              placeholder={`Email: ${user?.email || ''}`}
+              placeholderTextColor="#b8a99a"
+              value={editEmail}
+              onChangeText={setEditEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={styles.input}
+              editable={false}
             />
-          {/* Campo de contraseña: dejar vacío = no cambiar */}
-            <TextInput
-            placeholder="Nueva contrasena (dejar vacio para no cambiar)"
-            value={editPassword}
-            onChangeText={setEditPassword}
-            secureTextEntry
-            style={styles.input}
-            />
-          {/* Banner de error si la actualización falla */}
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Nueva contraseña (dejar vacío)"
+                placeholderTextColor="#b8a99a"
+                value={editPassword}
+                onChangeText={setEditPassword}
+                secureTextEntry={!showEditPassword}
+                style={styles.passwordInput}
+              />
+              <Pressable onPress={() => setShowEditPassword(!showEditPassword)} style={styles.eyeButton}>
+                <Ionicons name={showEditPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#9e8879" />
+              </Pressable>
+            </View>
+
             {perfilError ? (
-            <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={15} color="#ef4444" />
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={15} color="#e07070" />
                 <Text style={styles.errorText}>{perfilError}</Text>
-            </View>
+              </View>
             ) : null}
-          {/* Fila de botones: "Guardar" (índigo) y "Cancelar" (outline) */}
+
             <View style={styles.editActions}>
-            {/* Botón guardar: muestra spinner mientras guarda */}
-            <Pressable style={[styles.btn, styles.btnPrimary, { flex: 1 }]} onPress={handleGuardarPerfil} disabled={savingPerfil}>
-                {savingPerfil ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTextWhite}>Guardar</Text>}
-            </Pressable>
-            {/* Botón cancelar: cierra el formulario sin guardar */}
-            <Pressable style={[styles.btn, styles.btnOutline, { flex: 1 }]} onPress={() => { setEditMode(false); setPerfilError(''); }}>
-                <Text style={styles.btnTextOutline}>Cancelar</Text>
-            </Pressable>
+              <Pressable style={styles.btnSave} onPress={handleGuardarPerfil} disabled={savingPerfil}>
+                {savingPerfil ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.btnSaveText}>Guardar</Text>}
+              </Pressable>
+              <Pressable style={styles.btnCancel} onPress={() => { setEditMode(false); setPerfilError(''); }}>
+                <Text style={styles.btnCancelText}>Cancelar</Text>
+              </Pressable>
             </View>
-        </View>
-        ) : (
-        // ── BOTÓN PARA ABRIR EL FORMULARIO DE EDICIÓN ─────────────────────
-        <Pressable style={[styles.btn, styles.btnOutline]} onPress={() => { setEditMode(true); setPerfilSuccess(''); }}>
-            <Ionicons name="create-outline" size={17} color="#6366f1" />
-            <Text style={[styles.btnTextOutline, { color: '#6366f1' }]}>Editar perfil</Text>
-        </Pressable>
+          </View>
         )}
-
-      {/* ── BOTÓN: PANEL DE ADMINISTRACIÓN (solo admin y auxiliar) ─────── */}
-      {/* La condición evalúa el rol del usuario antes de renderizar */}
-        {user?.rol === 'administrador' || user?.rol === 'auxiliar' ? (
-        <Pressable style={[styles.btn, { backgroundColor: '#192847' }]} onPress={() => routerPush('/admin/dashboard')}>
-            <Ionicons name="speedometer-outline" size={17} color="#fff" />
-            <Text style={styles.btnTextWhite}>Panel de Administración</Text>
-        </Pressable>
-        ) : null}
-
-      {/* ── BOTÓN: MIS PEDIDOS (visible para todos los roles) ───────────── */}
-        <Pressable style={[styles.btn, { backgroundColor: '#c7984e' }]} onPress={() => routerPush('/mis-pedidos')}>
-        <Ionicons name="receipt-outline" size={17} color="#fff" />
-        <Text style={styles.btnTextWhite}>Mis Pedidos</Text>
-        </Pressable>
-
-      {/* ── BOTÓN: CERRAR SESIÓN ────────────────────────────────────────── */}
-        <Pressable style={[styles.btn, { backgroundColor: '#ef4444' }]} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={17} color="#fff" />
-        <Text style={styles.btnTextWhite}>Cerrar sesión</Text>
-        </Pressable>
+      </View>
+      <ConfirmModal
+        visible={showLogoutConfirm}
+        title="Cerrar Sesión"
+        message="¿Estás seguro de que deseas cerrar tu sesión actual?"
+        icon="log-out-outline"
+        iconColor="#e07070"
+        confirmText="Cerrar Sesión"
+        cancelText="Cancelar"
+        isDestructive={true}
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </ScrollView>
-    );
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ESTILOS
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // ── ESTILOS COMPARTIDOS ──────────────────────────────────────────────────
-  scroll: { flex: 1 },              // ScrollView ocupa toda la pantalla.
-  container: { flex: 1, justifyContent: 'center', padding: 20 },           // Contenedor del formulario de login/registro.
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }, // Pantalla de carga centrada.
+  scroll: { flex: 1, backgroundColor: '#fdf8f4' },
+  content: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingBottom: 60 },
+  
+  // Containers
+  authContainer: { width: '100%', maxWidth: 440, alignSelf: 'center', paddingVertical: 20 },
+  profileContainer: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: 16 },
 
-  // ── FORMULARIO DE LOGIN / REGISTRO ───────────────────────────────────────
-  formWrapper: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 20 },
-  formCard: { borderRadius: 12, padding: 16, gap: 12, width: '100%' }, // Tarjeta con fondo temático.
-  editSection: { borderRadius: 10, padding: 12, gap: 8, borderWidth: 1, borderColor: '#e0eaf3' }, // Sección de edición (no usada actualmente).
-  editActions: { flexDirection: 'row', gap: 8, marginTop: 4 },      // Fila de botones Guardar/Cancelar.
-    editBtn: { borderRadius: 10, borderWidth: 1, borderColor: '#0a7ea4', paddingVertical: 10, alignItems: 'center' },
-    editBtnText: { color: '#0a7ea4', fontWeight: '600' },
-  meta: { color: '#666', fontSize: 13 },                             // Texto secundario pequeño.
-  primaryButton: { borderRadius: 10, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#c7984e' }, // Botón "Entrar" / "Crear cuenta".
-    primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-    secondaryButton: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: '#d5d5d5', paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
-    logoutButton: { borderRadius: 10, backgroundColor: '#b93a32', paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-    ordersButton: { borderRadius: 10, backgroundColor: '#0a7ea4', paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-    adminBtn: { borderRadius: 10, backgroundColor: '#04566f', paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-    adminBtnText: { color: '#fff', fontWeight: '700' },
-    ordersText: { color: '#fff', fontWeight: '700' },
-    logoutText: { color: '#fff', fontWeight: '700' },
+  // Centered spinner
+  centered: { flex: 1, backgroundColor: '#fdf8f4', alignItems: 'center', justifyContent: 'center', gap: 12 },
 
-  // ── PERFIL (usuario autenticado) ─────────────────────────────────────────
-  // Espacio interno del ScrollView: 16dp de padding, 12dp entre hijos, 32dp al fondo.
-    content: { padding: 16, gap: 12, paddingBottom: 32 },
-  // Encabezado de perfil: fila con avatar + datos. El color de fondo es dinámico (inline).
-    profileHeader: {
-    borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16,
-    },
-  // Círculo blanco de 70×70dp que contiene el ícono del rol.
-    avatarCircle: {
-    width: 70, height: 70, borderRadius: 35,
-    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-    },
-  profileName: { fontSize: 20, fontWeight: '800', color: '#fff' },                    // Nombre del usuario.
-  profileEmail: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },      // Email semitransparente.
-  // Badge del rol: pastilla translúcida blanca con ícono + etiqueta.
-    roleBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6,
-    backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start',
-    },
-    roleBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  // FORMULARIO DE LOGIN / REGISTRO
+  formCard: { backgroundColor: '#ffffff', borderRadius: 24, padding: 24, gap: 14, borderWidth: 1, borderColor: '#e8ddd5', shadowColor: '#c4a882', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  authTitle: { fontSize: 24, fontWeight: '800', color: '#3d2c1e', textAlign: 'center' },
+  authSubtitle: { fontSize: 13, color: '#9e8879', textAlign: 'center', marginBottom: 6, marginTop: -4 },
+  primaryButton: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#192847', marginTop: 6, height: 48 },
+  primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  switchModeButton: { paddingVertical: 8, alignItems: 'center', marginTop: 4 },
+  switchModeText: { color: '#d4956a', fontWeight: '700', fontSize: 13, textAlign: 'center' },
 
-  // Tarjeta blanca con borde para el formulario de edición de perfil.
-    card: {
-    backgroundColor: '#fff', borderRadius: 12,
-    borderWidth: 1, borderColor: '#e8e8e8', padding: 14, gap: 10,
-    },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }, // Fila: ícono + título de la tarjeta.
-    cardTitle: { fontWeight: '700', fontSize: 15, color: '#222' },
+  // PERFIL (usuario autenticado)
+  profileCard: { backgroundColor: '#ffffff', borderRadius: 24, padding: 24, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#e8ddd5', shadowColor: '#c4a882', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  avatarCircle: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  profileName: { fontSize: 22, fontWeight: '800', color: '#3d2c1e', textAlign: 'center' },
+  profileEmail: { fontSize: 14, color: '#9e8879', textAlign: 'center' },
+  roleBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, marginTop: 4 },
+  roleBadgeText: { fontSize: 11, fontWeight: '700' },
 
-  // Botón base: fila centrada con ícono + texto y bordes redondeados.
-    btn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 12, paddingVertical: 14,
-    },
-  btnPrimary: { backgroundColor: '#192847' },                          // Relleno oscuro.
-  btnOutline: { borderWidth: 2, borderColor: '#c7984e', backgroundColor: '#fff' }, // Solo borde dorado.
-  btnTextWhite: { color: '#fff', fontWeight: '700', fontSize: 15 },    // Texto blanco para botones rellenos.
-  btnTextOutline: { color: '#c7984e', fontWeight: '700', fontSize: 15 }, // Texto dorado para botones outline.
+  // Menú de navegación
+  menuContainer: { backgroundColor: '#ffffff', borderRadius: 24, borderWidth: 1, borderColor: '#e8ddd5', shadowColor: '#c4a882', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3, overflow: 'hidden' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f3ece6' },
+  menuItemLast: { borderBottomWidth: 0 },
+  menuItemPressed: { backgroundColor: '#fdfbf9' },
+  menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
+  menuIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  menuItemText: { fontSize: 14, fontWeight: '600', color: '#3d2c1e', marginLeft: 12 },
 
-  // Banner verde de éxito (perfil actualizado).
-    successBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#ecfdf5', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#a7f3d0',
-    },
-    successText: { color: '#065f46', fontSize: 13, fontWeight: '500' },
-  // Banner rojo de error (falló la actualización del perfil).
-    errorBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fef2f2', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#fca5a5',
-    },
-    errorText: { color: '#b91c1c', fontSize: 13 },
+  // Tarjeta de edición
+  editCard: { backgroundColor: '#ffffff', borderRadius: 24, borderWidth: 1, borderColor: '#e8ddd5', padding: 20, gap: 12, shadowColor: '#c4a882', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  cardTitle: { fontWeight: '700', fontSize: 15, color: '#3d2c1e' },
+  editActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
 
-  // Campo de texto genérico: borde gris, fondo blanco, bordes redondeados.
-    input: {
-    borderWidth: 1, borderColor: '#d5d5d5', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fff',
-    },
-  error: { color: '#d64545' },   // Color rojo para mensajes de error inline (ThemedText).
-  success: { color: '#218f4c' }, // Color verde para mensajes de éxito inline (ThemedText).
+  // Botones edicion
+  btnSave: { flex: 1, height: 44, borderRadius: 12, backgroundColor: '#192847', alignItems: 'center', justifyContent: 'center' },
+  btnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
+  btnCancel: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  btnCancelText: { color: '#9e8879', fontWeight: '700', fontSize: 14 },
+
+  // Banners de exito y error
+  successBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#d8f3dc', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#b7e4c7', width: '100%' },
+  successText: { color: '#2d6a4f', fontSize: 13, fontWeight: '600', flex: 1 },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fde8e8', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#f4baba', width: '100%' },
+  errorText: { color: '#e07070', fontSize: 13, flex: 1 },
+
+  // Inputs
+  input: { borderWidth: 1, borderColor: '#e8ddd5', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: '#fff9f5', color: '#3d2c1e', fontSize: 14, height: 46 },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e8ddd5', borderRadius: 12, backgroundColor: '#fff9f5', height: 46 },
+  passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 11, color: '#3d2c1e', fontSize: 14 },
+  eyeButton: { paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
 });

@@ -8,6 +8,7 @@
 import { Tabs } from 'expo-router';
 //react es nevesario para que JSX funcione correctamente
 import React from 'react';
+import { Platform } from 'react-native';
 //hapticTab version personalizada del boton de la pestaña que agrega vibracion tactil (haptic feedback) al precionar el tab
 import { HapticTab } from '../../components/haptic-tab';
 //IconSymbols componente que muestra iconos SF symbols IOS y material de android
@@ -27,22 +28,33 @@ export default function TabLayout() {
         //Tabs renderiza la barra de pestañas inferior y gestiona que la pantalla este activa en cada momento
         <Tabs
             screenOptions = {{
-                //tabBarActiveTintColor color del icono y texto de la pestaña activa 
-                //si colorScheme es null (no detectado) usa light por defecto
                 tabBarActiveTintColor: '#192847',
-                tabBarInactiveTintColor: '#6b7280',
-                //headerShown false oculta el encabezado superior en todas las pantallas 
+                tabBarInactiveTintColor: '#9ca3af',
                 headerShown: false,
-                //tabBarButton remplaza el boton estandar por hapticTab con vibracion 
                 tabBarButton: HapticTab,
+                tabBarLabelStyle: {
+                    fontSize: 10,
+                    fontWeight: '700',
+                    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+                },
                 tabBarStyle: {
+                    position: 'absolute',
+                    bottom: Platform.OS === 'ios' ? 24 : 16,
+                    left: 20,
+                    right: 20,
+                    borderRadius: 20,
                     backgroundColor: '#ffffff',
                     borderTopWidth: 0,
-                    height: 70,
-                    paddingBottom: 8,
-                    paddingTop: 6,
-                    shadowOpacity: 0,
-                    elevation: 0,
+                    height: 64,
+                    paddingBottom: Platform.OS === 'ios' ? 6 : 8,
+                    paddingTop: 8,
+                    shadowColor: '#192847',
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 16,
+                    elevation: 5,
+                    borderWidth: 1,
+                    borderColor: 'rgba(25, 40, 71, 0.04)',
                 }
             }}>
 
@@ -54,11 +66,8 @@ export default function TabLayout() {
             <Tabs.Screen
             name = "index"
             options = {{
-                //texto que aparece debajo del icono de la barra
-                title: 'Catalogo',
-                //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
-                //house.fill = icono de casa rellena (representa el icono de la tienda)
-                tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "house.fill" color = {color} />,
+                title: 'Catálogo',
+                tabBarIcon: ({ color }) => <IconSymbol size = {22} name = "house.fill" color = {color} />,
             }}
             />
 
@@ -70,11 +79,8 @@ export default function TabLayout() {
             <Tabs.Screen
             name = "carrito"
             options = {{
-                //texto que aparece debajo del icono de la barra
                 title: 'Mi Carrito',
-                //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
-                //cart.fill = icono de carrito relleno (representa el icono del carrito)
-                tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "cart.fill" color = {color} />,
+                tabBarIcon: ({ color }) => <IconSymbol size = {22} name = "cart.fill" color = {color} />,
             }}
             />
 
@@ -86,11 +92,8 @@ export default function TabLayout() {
             <Tabs.Screen
             name = "explore"
             options = {{
-                //texto que aparece debajo del icono de la barra
                 title: 'Mi Cuenta',
-                //tabBarIcon funcion que recibe el color activo o inactivo y devuelve el icono
-                //person.circle = icono de persona (representa la cuenta del usuario)
-                tabBarIcon: ({ color }) => <IconSymbol size = {28} name = "person.fill" color = {color} />,
+                tabBarIcon: ({ color }) => <IconSymbol size = {22} name = "person.fill" color = {color} />,
             }}
             />
 

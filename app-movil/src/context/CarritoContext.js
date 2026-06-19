@@ -110,6 +110,7 @@ export function CarritoProvider({ children}) {
     const eliminarItem = useCallback(
         async (itemId) => {
             await carritoService.removeItem({ isAuthenticated, itemId });
+            await hydrate();
         },
         [hydrate, isAuthenticated]
     );

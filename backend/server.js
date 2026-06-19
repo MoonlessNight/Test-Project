@@ -81,8 +81,12 @@ const PORT = process.env.PORT || 5000;
 // porque el backend está en un puerto diferente (localhost:5000)
 app.use(cors({
   // origin → URL del frontend que tiene permiso para hacer peticiones
-  // Lee FRONTEND_URL del .env, o usa http://localhost:3000 por defecto
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  // En desarrollo (NODE_ENV=development), permitimos dinámicamente cualquier origen (true)
+  // para facilitar conexiones desde emuladores de Android/iOS o Expo Web.
+  // En producción, nos limitamos al FRONTEND_URL configurado.
+  origin: process.env.NODE_ENV === 'development'
+    ? true
+    : (process.env.FRONTEND_URL || 'http://localhost:3000'),
   
   // credentials: true → permite que el navegador envíe cookies y headers de autenticación
   // Necesario para que el token JWT en el header Authorization funcione correctamente
@@ -292,9 +296,9 @@ const startServer = async () => {
     await runSeeders();
     
     // PASO 4: Iniciar el servidor HTTP con Express
-    // app.listen(puerto, callback) → pone el servidor a escuchar en el puerto especificado
-    // El callback se ejecuta cuando el servidor está listo para recibir peticiones
-    app.listen(PORT, () => {
+    // app.listen(puerto, host, callback) → pone el servidor a escuchar en el puerto y host especificados
+    // Escuchamos en '0.0.0.0' para permitir conexiones entrantes de cualquier dispositivo en la misma red local (ej: celulares físicos)
+    app.listen(PORT, '0.0.0.0', () => {
       // Muestra un banner informativo en la consola del servidor
       console.log('\n╔════════════════════════════════════════════════╗');
       console.log(`║  ✅ Servidor corriendo en puerto ${PORT}          ║`);

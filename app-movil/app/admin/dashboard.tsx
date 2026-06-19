@@ -1,100 +1,66 @@
 /**
- * Pantalla principal del panel del administrador y auxiliar 
- * solo accesible para roles definidos
- * muestra tarjetas de estadisticas de tiempo real categorias y productos 
- * pedidos / ventas totales
- * los auxiliares ven todo excepto la tarjeta de usuarios isAdmin=false
- * incluye accesos rapidos y las secciones mas usadas
- * muestra informacion del sistema (estado de la api y rol de usuario)
+ * Pantalla principal del panel del administrador y auxiliar.
+ * Diseño pastel cálido • Tarjetas con sombras suaves • Accesos rápidos • Info sistema
  */
 
-//importaciones
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-
-//navegacion de expo router 
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-//biblioteca de iconos de react
 import { Ionicons } from "@expo/vector-icons";
-//cliente http axios con JWT
 import apiClient from '../../src/api/apiClient';
-//autenticacion
 import { useAuth } from '../../src/context/AuthContext';
+import { API_ORIGIN_URL } from '../../src/utils/constants';
+import { ThemedText } from '../../components/themed-text';
 
-//control de rol
-//solo necesita rol y nombre del usuario en pantalla 
 type AuthUser = { rol?: string; nombre?: string };
-
-/**
- * Panel de navegacion
- * El tipo de router de expo no expone el push con tipiado correcto
- * las versiones actuales del os y android no permite uso de push
- */
 
 const push = (path: string) => (router as unknown as { push: (p: string) => void }).push(path);
 
-//Tipo statCard
-//describe la forma de cada tarjeta de estadistica de grid
-
 type StatCard = {
-    title: string; //etiqueta de la tarjeta
-    value: number | string; //valor numerico a mostrar 
-    icon: keyof typeof Ionicons.glyphMap; //nombre de los iconos
-    gradient: [string, string]; //par de colores fondo principal y fondo secundario
-    route: string; //ruta a la que navega al precionar la tarjeta
-    show: boolean; //si es false la tarjeta no se muestra
+    title: string;
+    value: number | string;
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+    bg: string;
+    emoji: string;
+    route: string;
+    show: boolean;
 };
-//componente principal del dashboard 
-export default function AdminDashboardScreen() {
-    //contexto de autenticacion
-    //se usa cast a tipo explicito porque AuthContext.js es js purto y no lo reconoce TSX
-    const { user, isAuthenticated } = useAuth() as { user: AuthUser | null; isAuthenticated: boolean };
-    //Flags de rol para controlar que se muestra la pantalla segun rol del usuario
-    const isAdmin = user?.rol === 'administrador'; //true solo para administradores 
-    const isAuxiliar = user?.rol === 'auxiliar'; //true solo si es auxiliar
 
-    /**
-     * Estado local
-     * objeto con todos los controladores que se muestran en grip de tarjetas
-     * valores iniciales en 0 mientras se cargan
-     */
+export default function AdminDashboardScreen() {
+    const { user, isAuthenticated } = useAuth() as { user: AuthUser | null; isAuthenticated: boolean };
+    const isAdmin = user?.rol === 'administrador';
+    const isAuxiliar = user?.rol === 'auxiliar';
 
     const [stats, setStats] = useState({
         categorias: 0,
         subcategorias: 0,
         productos: 0,
-        usuarios: 0, //numero de usuarios registrados solo el admin
+        usuarios: 0,
         pedidos: 0,
         pendientes: 0,
         ventas: 0,
     });
 
     const [loading, setLoading] = useState(false);
-    //efectos de carga de estadisticas 
+
     useEffect(() => {
         const load = async () => {
             setLoading(true);
             try {
-                //se hacen 4 peticiones en paralelo con promise.all para reducir el tiempo de carga 
-                //cada una trae datos de una seccion diferente al panel
                 const [cats, subs, prods, orders] = await Promise.all([
                     apiClient.get('/admin/categorias'),
                     apiClient.get('/admin/subcategorias'),
-                    apiClient.get('/admin/productos?limite=1'), //por que solo se necesita el total
+                    apiClient.get('/admin/productos?limite=1'),
                     apiClient.get('/admin/pedidos/estadisticas'),
                 ]);
 
-                //los stats de usuarios solo se piden si el usuario es administrador 
-                //los auxiliares no tienen acceso a ese endpoint 
-                const userStats = isAdmin ? await apiClient.get('/admin/usuarios/stats')
-                : null;
+                const userStats = isAdmin ? await apiClient.get('/admin/usuarios/stats') : null;
 
-                //extraer los datos de cada respuesta con optional chaning y fallback
                 const catsData = cats?.data?.data?.categorias || [];
                 const subsData = subs?.data?.data?.subcategorias || [];
-                const ordStats = orders.data?.data?.stats || [];
+                const ordStats = orders.data?.data?.stats || {};
 
-                //actualizar el estado con todos los contadores calculados
                 setStats({
                     categorias: Array.isArray(catsData) ? catsData.length : 0,
                     subcategorias: Array.isArray(subsData) ? subsData.length : 0,
@@ -105,282 +71,260 @@ export default function AdminDashboardScreen() {
                     ventas: ordStats.ventasTotales || 0,
                 });
             } catch (_) {
-                //si alguna peticion falla simplemente se ignora el error
-                //los stats quedan en 0 no se muestra mensaje de error al usuario
-                //ignore
+                // ignore
             } finally {
                 setLoading(false);
             }
         };
 
-        /**
-         * solo carga las estadisticas si el usuario esta autenticado y tiene rolo de admin o auxiliar 
-         */
         if (isAuthenticated && (isAdmin || isAuxiliar)) load();
-    }, [isAuthenticated, isAdmin, isAuxiliar]); //se ejecuta segun el rol que inicio sesion 
+    }, [isAuthenticated, isAdmin, isAuxiliar]);
 
-    //si el usuario no esta autenticado o no tiene rol admin/auxiliar muestra bloqueo 
-    if (!isAuthenticated || (!isAdmin && !isAuxiliar)) {(
-            <View style={styles.centered}>
-                <Ionicons name="lock-closed" size={60} color="#ccc" />
-                <Text style={styles.restrictedTitle}>Acceso restringido</Text>
-                <Text style={styles.restrictedSub}>Solo Administradores y auxiliares</Text>
+    if (!isAuthenticated || (!isAdmin && !isAuxiliar)) {
+        return (
+            <View style={s.centered}>
+                <Ionicons name="lock-closed" size={60} color="#e07070" />
+                <ThemedText style={s.restrictedTitle}>Acceso restringido</ThemedText>
+                <ThemedText style={s.restrictedSub}>Solo Administradores y auxiliares</ThemedText>
             </View>
-        )
+        );
     }
 
-    
-  // ── DEFINICIÓN DE TARJETAS ────────────────────────────────────────────────
-  // Array de objetos StatCard que definen cada tarjeta del grid.
-  // El campo 'show' controla si la tarjeta se renderiza o no.
-  // La tarjeta de 'Usuarios' solo se muestra a administradores (show: isAdmin).
-const cards: StatCard[] = [
-    { title: 'Categorías',    value: stats.categorias,    icon: 'folder-outline',      gradient: ['#8c6b33', '#c7984e'], route: '/admin/categorias', show: true },
-    { title: 'Subcategorías', value: stats.subcategorias, icon: 'folder-open-outline', gradient: ['#8c6b33', '#c7984e'], route: '/admin/subcategorias', show: true },
-    { title: 'Productos',     value: stats.productos,     icon: 'cube-outline',        gradient: ['#8c6b33', '#c7984e'], route: '/admin/productos', show: true },
-    { title: 'Usuarios',      value: stats.usuarios,      icon: 'people-outline',      gradient: ['#8c6b33', '#c7984e'], route: '/admin/usuarios',  show: isAdmin },
-    { title: 'Pedidos',       value: stats.pedidos,       icon: 'cart-outline',        gradient: ['#8c6b33', '#c7984e'], route: '/admin/pedidos',   show: true },
-    { title: 'Pendientes',    value: stats.pendientes,    icon: 'time-outline',        gradient: ['#8c6b33', '#c7984e'], route: '/admin/pedidos',   show: true },
-];
+    const cards: StatCard[] = [
+        { title: 'Categorías',    value: stats.categorias,    icon: 'folder-outline',      color: '#d4956a', bg: '#fef3e2', emoji: '🗂️', route: '/admin/categorias', show: true },
+        { title: 'Subcategorías', value: stats.subcategorias, icon: 'pricetags-outline',   color: '#d4956a', bg: '#fef3e2', emoji: '🏷️', route: '/admin/subcategorias', show: true },
+        { title: 'Productos',     value: stats.productos,     icon: 'cube-outline',        color: '#d4956a', bg: '#fef3e2', emoji: '📦', route: '/admin/productos', show: true },
+        { title: 'Usuarios',      value: stats.usuarios,      icon: 'people-outline',      color: '#1a6b9e', bg: '#e8f4fd', emoji: '👥', route: '/admin/usuarios',  show: isAdmin },
+        { title: 'Pedidos',       value: stats.pedidos,       icon: 'cart-outline',        color: '#52b788', bg: '#d8f3dc', emoji: '🛒', route: '/admin/pedidos',   show: true },
+        { title: 'Pendientes',    value: stats.pendientes,    icon: 'time-outline',        color: '#e07070', bg: '#fde8e8', emoji: '⏳', route: '/admin/pedidos',   show: true },
+    ];
 
-  // ── HELPER: formateador de moneda ─────────────────────────────────────────
-  // Convierte un número a formato de pesos colombianos. Ej: 45000 → "$45.000"
-const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
+    const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
 
-  // ── RENDERIZADO PRINCIPAL ─────────────────────────────────────────────────
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-
-      {/* ── HEADER ──────────────────────────────────────────────────────── */}
-      {/* Tarjeta índigo con el título del panel, bienvenida y descripción. */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.headerTitle}>Panel de Administración</Text>
-            {/* Saludo dinámico: nombre del usuario y su rol. */}
-            <Text style={styles.headerSub}>
-              Bienvenido, {user?.nombre || 'usuario'} · {isAdmin ? 'Administrador' : 'Auxiliar'}
-            </Text>
-          </View>
-          {/* Ícono decorativo del dashboard en la esquina superior derecha. */}
-          <View style={styles.headerIcon}>
-            <Ionicons name="speedometer-outline" size={32} color="#fff" />
-          </View>
-        </View>
-        <Text style={styles.headerDesc}>Sistema de gestión del e-commerce</Text>
-      </View>
-
-      {/* ── GRID DE ESTADÍSTICAS ────────────────────────────────────────── */}
-      {/* Mientras carga: spinner. Cuando termina: grid de tarjetas 2 columnas. */}
-      {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#c7984e" />
-          <Text style={styles.loadingText}>Cargando estadísticas...</Text>
-        </View>
-      ) : (
-        <View style={styles.grid}>
-          {/* Filtra las tarjetas con show=true y renderiza cada una. */}
-          {cards.filter(c => c.show).map((card) => (
-            <Pressable
-              key={card.title}
-              // El color de fondo es el primer color del gradiente de cada tarjeta.
-              style={[styles.card, { backgroundColor: card.gradient[0] }]}
-              onPress={() => push(card.route)} // Navega a la sección correspondiente.
-            >
-              <View style={styles.cardTop}>
-                <View>
-                  {/* Etiqueta pequeña: nombre de la estadística */}
-                  <Text style={styles.cardLabel}>{card.title}</Text>
-                  {/* Número grande: valor de la estadística */}
-                  <Text style={styles.cardValue}>{card.value}</Text>
+    return (
+        <ScrollView style={s.container} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={s.header}>
+                <View style={s.headerTop}>
+                    <View style={{ flex: 1 }}>
+                        <ThemedText style={s.headerTitle}>Panel de Control</ThemedText>
+                        <ThemedText style={s.headerSub}>
+                            ¡Hola, {user?.nombre || 'usuario'}! 👋
+                        </ThemedText>
+                        <View style={s.roleBadge}>
+                            <ThemedText style={s.roleBadgeText}>
+                                {isAdmin ? '👑 Administrador' : '🛠️ Auxiliar'}
+                            </ThemedText>
+                        </View>
+                    </View>
+                    <View style={s.headerIconWrap}>
+                        <ThemedText style={{ fontSize: 32 }}>📊</ThemedText>
+                    </View>
                 </View>
-                {/* Ícono a la derecha dentro de un círculo semitransparente */}
-                <View style={styles.cardIconWrap}>
-                  <Ionicons name={card.icon} size={32} color="rgba(255,255,255,0.9)" />
+            </View>
+
+            {/* Grid de Estadísticas */}
+            {loading ? (
+                <View style={s.loadingBox}>
+                    <ActivityIndicator size="large" color="#d4956a" />
+                    <ThemedText style={s.loadingText}>Cargando estadísticas...</ThemedText>
                 </View>
-              </View>
-              {/* Pie de la tarjeta: texto "Ver detalles" con flecha */}
-              <View style={styles.cardFooter}>
-                <Text style={styles.cardFooterText}>Ver detalles</Text>
-                <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.9)" />
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      )}
+            ) : (
+                <View style={s.grid}>
+                    {cards.filter(c => c.show).map((card) => (
+                        <Pressable
+                            key={card.title}
+                            style={s.card}
+                            onPress={() => push(card.route)}
+                        >
+                            <View style={s.cardTop}>
+                                <View style={{ flex: 1 }}>
+                                    <ThemedText style={s.cardLabel}>{card.title}</ThemedText>
+                                    <ThemedText style={s.cardValue}>{card.value}</ThemedText>
+                                </View>
+                                <View style={[s.cardIconBox, { backgroundColor: card.bg }]}>
+                                    <Ionicons name={card.icon} size={20} color={card.color} />
+                                </View>
+                            </View>
+                            <View style={s.cardFooter}>
+                                <ThemedText style={s.cardFooterText}>Gestionar</ThemedText>
+                                <Ionicons name="chevron-forward" size={13} color="#9e8879" />
+                            </View>
+                        </Pressable>
+                    ))}
+                </View>
+            )}
 
-      {/* ── BANNER DE VENTAS TOTALES ─────────────────────────────────────── */}
-      {/* Solo se muestra cuando ya terminó de cargar (evita mostrar $0 mientras carga). */}
-      {!loading && (
-        <View style={styles.salesBanner}>
-          <Ionicons name="trending-up-outline" size={22} color="#c7984e" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.salesLabel}>Ventas Totales</Text>
-            {/* Total de ventas formateado en COP */}
-            <Text style={styles.salesValue}>{fmt(stats.ventas)}</Text>
-          </View>
-        </View>
-      )}
+            {/* Ventas Banner */}
+            {!loading && (
+                <View style={s.salesBanner}>
+                    <View style={s.salesIconBox}>
+                        <Ionicons name="trending-up-outline" size={24} color="#d4956a" />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                        <ThemedText style={s.salesLabel}>Ventas Totales</ThemedText>
+                        <ThemedText style={s.salesValue}>{fmt(stats.ventas)}</ThemedText>
+                    </View>
+                </View>
+            )}
 
-      {/* ── ACCESOS RÁPIDOS ──────────────────────────────────────────────── */}
-      {/* Sección con botones outline de colores para ir rápidamente a cada módulo. */}
-      <View style={styles.section}>
-        {/* Encabezado de sección: fondo índigo con ícono + título */}
-        <View style={styles.sectionHeader}>
-          <Ionicons name="flash" size={18} color="#fff" />
-          <Text style={styles.sectionTitle}>Accesos Rápidos</Text>
-        </View>
-        <View style={styles.sectionBody}>
-          {/* Botón: Agregar Producto → va a /admin/productos (color índigo) */}
-          <Pressable style={[styles.actionBtn, { borderColor: '#c7984e' }]} onPress={() => push('/admin/productos')}>
-            <Ionicons name="add-circle-outline" size={18} color="#c7984e" />
-            <Text style={[styles.actionText, { color: '#c7984e' }]}>Agregar Producto</Text>
-          </Pressable>
-          {/* Botón: Agregar Categoría → va a /admin/categorias (verde) */}
-          <Pressable style={[styles.actionBtn, { borderColor: '#10b981' }]} onPress={() => push('/admin/categorias')}>
-            <Ionicons name="add-circle-outline" size={18} color="#10b981" />
-            <Text style={[styles.actionText, { color: '#10b981' }]}>Agregar Categoría</Text>
-          </Pressable>
-          {/* Botón: Gestionar Pedidos → va a /admin/pedidos (azul cian) */}
-          <Pressable style={[styles.actionBtn, { borderColor: '#06b6d4' }]} onPress={() => push('/admin/pedidos')}>
-            <Ionicons name="list-outline" size={18} color="#06b6d4" />
-            <Text style={[styles.actionText, { color: '#06b6d4' }]}>Gestionar Pedidos</Text>
-          </Pressable>
-          {/* Botón: Visitar Tienda → va a '/' (la tab principal del catálogo) (gris) */}
-          <Pressable style={[styles.actionBtn, { borderColor: '#6b7280' }]} onPress={() => push('/')}>
-            <Ionicons name="storefront-outline" size={18} color="#6b7280" />
-            <Text style={[styles.actionText, { color: '#6b7280' }]}>Visitar Tienda</Text>
-          </Pressable>
-        </View>
-      </View>
+            {/* Accesos Rápidos */}
+            <View style={s.section}>
+                <View style={s.sectionHeader}>
+                    <Ionicons name="flash-outline" size={18} color="#d4956a" />
+                    <ThemedText style={s.sectionTitle}>Accesos Rápidos</ThemedText>
+                </View>
+                <View style={s.sectionBody}>
+                    <Pressable style={s.actionBtn} onPress={() => push('/admin/producto-form')}>
+                        <Ionicons name="add-circle-outline" size={18} color="#d4956a" />
+                        <ThemedText style={[s.actionText, { color: '#d4956a' }]}>Nuevo Producto</ThemedText>
+                    </Pressable>
+                    <Pressable style={s.actionBtn} onPress={() => push('/admin/categoria-form')}>
+                        <Ionicons name="add-circle-outline" size={18} color="#52b788" />
+                        <ThemedText style={[s.actionText, { color: '#52b788' }]}>Nueva Categoría</ThemedText>
+                    </Pressable>
+                    <Pressable style={s.actionBtn} onPress={() => push('/admin/pedidos')}>
+                        <Ionicons name="list-outline" size={18} color="#1a6b9e" />
+                        <ThemedText style={[s.actionText, { color: '#1a6b9e' }]}>Gestionar Pedidos</ThemedText>
+                    </Pressable>
+                    <Pressable style={s.actionBtn} onPress={() => push('/')}>
+                        <Ionicons name="storefront-outline" size={18} color="#9e8879" />
+                        <ThemedText style={[s.actionText, { color: '#9e8879' }]}>Visitar Tienda</ThemedText>
+                    </Pressable>
+                </View>
+            </View>
 
-      {/* ── INFORMACIÓN DEL SISTEMA ──────────────────────────────────────── */}
-      {/* Tarjeta informativa con estado del sistema, URL de la API y rol actual. */}
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Información del Sistema</Text>
-        {/* Estado: verde = sistema funcionando correctamente */}
-        <View style={styles.infoRow}>
-          <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-          <Text style={styles.infoText}>Sistema operativo correctamente</Text>
-        </View>
-        {/* URL de la API: 10.0.2.2 es localhost del emulador Android */}
-        <View style={styles.infoRow}>
-          <Ionicons name="server-outline" size={16} color="#c7984e" />
-          <Text style={styles.infoText}>API: http://10.0.2.2:5000</Text>
-        </View>
-        {/* Rol del usuario actualmente autenticado */}
-        <View style={styles.infoRow}>
-          <Ionicons name="shield-checkmark-outline" size={16} color="#f59e0b" />
-          <Text style={styles.infoText}>Rol: {isAdmin ? 'Administrador' : 'Auxiliar'}</Text>
-        </View>
-      </View>
-
-    </ScrollView>
-  );
+            {/* Info de Sistema */}
+            <View style={s.infoCard}>
+                <ThemedText style={s.infoTitle}>Información del Sistema</ThemedText>
+                <View style={s.infoRow}>
+                    <Ionicons name="checkmark-circle" size={16} color="#52b788" />
+                    <ThemedText style={s.infoText}>API en línea y operativa</ThemedText>
+                </View>
+                <View style={s.infoRow}>
+                    <Ionicons name="server-outline" size={16} color="#d4956a" />
+                    <ThemedText style={s.infoText} numberOfLines={1}>Host: {API_ORIGIN_URL}</ThemedText>
+                </View>
+                <View style={s.infoRow}>
+                    <Ionicons name="shield-checkmark-outline" size={16} color="#9e8879" />
+                    <ThemedText style={s.infoText}>Conexión cifrada y segura</ThemedText>
+                </View>
+            </View>
+        </ScrollView>
+    );
 }
 
-// ── ESTILOS ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  // Contenedor raíz del ScrollView: ocupa toda la pantalla.
-  container: { flex: 1 },
-  // Contenido interno: padding general + gap entre secciones + padding inferior.
-  content: { padding: 16, gap: 16, paddingBottom: 32 },
+const s = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#fdf8f4' },
+    content: { padding: 16, gap: 16, paddingBottom: 40 },
 
-  // Centrado de pantalla completa para el estado de "acceso restringido".
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  restrictedTitle: { fontSize: 22, fontWeight: '700', color: '#333' },
-  restrictedSub: { color: '#888', fontSize: 14 },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, backgroundColor: '#fdf8f4' },
+    restrictedTitle: { fontSize: 20, fontWeight: '800', color: '#3d2c1e' },
+    restrictedSub: { color: '#9e8879', fontSize: 14 },
 
-  // ── HEADER ────────────────────────────────────────
-  // Tarjeta oscura (#192847) con bordes redondeados.
-  header: {
-    borderRadius: 16,
-    backgroundColor: '#192847',
-    padding: 20,
-    gap: 8,               // Espacio entre la fila superior y la descripción.
-  },
-  // Fila superior: título+saludo a la izquierda, ícono a la derecha.
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }, // Saludo semitransparente.
-  headerDesc: { fontSize: 13, color: 'rgba(255,255,255,0.75)' },              // Descripción más tenue.
-  // Círculo blanco semitransparente que envuelve el ícono del dashboard.
-  headerIcon: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 12,
-    padding: 10,
-  },
+    // Header
+    header: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 18,
+        shadowColor: '#c4a882',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+    },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: '#3d2c1e' },
+    headerSub: { fontSize: 14, color: '#9e8879', marginTop: 4 },
+    roleBadge: { alignSelf: 'flex-start', backgroundColor: '#fff3e6', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8 },
+    roleBadgeText: { fontSize: 11, fontWeight: '700', color: '#d4956a' },
+    headerIconWrap: { width: 56, height: 56, borderRadius: 18, backgroundColor: '#fff9f5', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e8ddd5' },
 
-  // ── CARGA ─────────────────────────────────────────
-  loadingBox: { alignItems: 'center', gap: 10, paddingVertical: 24 },
-  loadingText: { color: '#666' },
+    // Loading
+    loadingBox: { alignItems: 'center', gap: 10, paddingVertical: 32 },
+    loadingText: { color: '#9e8879', fontSize: 13 },
 
-  // ── GRID DE TARJETAS ──────────────────────────────
-  // Contenedor flex con wrap: las tarjetas se distribuyen en 2 columnas.
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  // Tarjeta individual: ancho ~47% para que entren 2 por fila (con gap de 12).
-  card: {
-    borderRadius: 14,
-    padding: 16,
-    width: '47%',         // ~mitad del ancho menos el gap.
-    gap: 10,              // Espacio entre cardTop y cardFooter.
-  },
-  // Fila superior de la tarjeta: label+valor a la izquierda, ícono a la derecha.
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' }, // Nombre de la stat.
-  cardValue: { fontSize: 32, fontWeight: '800', color: '#fff', marginTop: 2 },     // Número grande.
-  // Círculo blanco semitransparente alrededor del ícono de cada tarjeta.
-  cardIconWrap: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 10,
-    padding: 8,
-  },
-  // Pie de tarjeta: "Ver detalles" + flecha.
-  cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cardFooterText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '500' },
+    // Grid
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 18,
+        padding: 14,
+        width: '48%', // Entran dos por fila restando el gap
+        gap: 12,
+        shadowColor: '#c4a882',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
+    },
+    cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    cardLabel: { fontSize: 12, color: '#9e8879', fontWeight: '600' },
+    cardValue: { fontSize: 26, fontWeight: '800', color: '#3d2c1e', marginTop: 4 },
+    cardIconBox: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4, borderTopWidth: 1, borderTopColor: '#f7f2ed', paddingTop: 8 },
+    cardFooterText: { fontSize: 12, color: '#9e8879', fontWeight: '600' },
 
-  // ── BANNER DE VENTAS ──────────────────────────────
-  // Fila blanca con borde gris: ícono + label "Ventas Totales" + valor en COP.
-  salesBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#fff',
-    borderRadius: 12, padding: 16,
-    borderWidth: 1, borderColor: '#e8e8e8',
-  },
-  salesLabel: { fontSize: 12, color: '#888' },                           // "Ventas Totales" en gris.
-  salesValue: { fontSize: 22, fontWeight: '800', color: '#c7984e' },     // Monto en dorado grande.
+    // Banner de ventas
+    salesBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        backgroundColor: '#fff',
+        borderRadius: 18,
+        padding: 16,
+        shadowColor: '#c4a882',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
+    },
+    salesIconBox: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#fff3e6', alignItems: 'center', justifyContent: 'center' },
+    salesLabel: { fontSize: 12, color: '#9e8879', fontWeight: '600' },
+    salesValue: { fontSize: 24, fontWeight: '900', color: '#d4956a' },
 
-  // ── SECCIÓN (Accesos Rápidos) ─────────────────────
-  // Contenedor con borde y overflow hidden para que el header redondeado se vea bien.
-  section: {
-    borderRadius: 12, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#e8e8e8',
-  },
-  // Encabezado de sección: fondo índigo con ícono + título.
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#192847', padding: 14,
-  },
-  sectionTitle: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  sectionBody: { backgroundColor: '#fff', padding: 14, gap: 10 }, // Área blanca con los botones.
-  // Botón outline: solo borde de color, sin relleno. El color se aplica inline.
-  actionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 2, borderRadius: 10,
-    paddingVertical: 13, paddingHorizontal: 16,
-  },
-  actionText: { fontWeight: '600', fontSize: 14 }, // El color se aplica inline.
+    // Quick Actions
+    section: {
+        backgroundColor: '#fff',
+        borderRadius: 18,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#e8ddd5',
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#fff9f5',
+        padding: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e8ddd5',
+    },
+    sectionTitle: { color: '#3d2c1e', fontWeight: '800', fontSize: 14 },
+    sectionBody: { padding: 14, gap: 10 },
+    actionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        borderWidth: 1.5,
+        borderColor: '#f0ede8',
+        backgroundColor: '#fdf8f4',
+        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    actionText: { fontWeight: '700', fontSize: 13 },
 
-  // ── TARJETA DE INFORMACIÓN ────────────────────────
-  // Card blanca con borde gris para el panel "Información del Sistema".
-  infoCard: {
-    backgroundColor: '#fff', borderRadius: 12,
-    borderWidth: 1, borderColor: '#e8e8e8',
-    padding: 16, gap: 10,
-  },
-  infoTitle: { fontWeight: '700', fontSize: 15, color: '#222', marginBottom: 4 },
-  // Cada fila de info: ícono de color + texto descriptivo.
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoText: { color: '#444', fontSize: 14 },
+    // Info Card
+    infoCard: {
+        backgroundColor: '#fff',
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#e8ddd5',
+        padding: 16,
+        gap: 10,
+    },
+    infoTitle: { fontWeight: '800', fontSize: 14, color: '#3d2c1e', marginBottom: 4 },
+    infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    infoText: { color: '#7c6455', fontSize: 13, fontWeight: '500' },
 });
-

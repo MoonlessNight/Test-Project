@@ -12,6 +12,10 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';          // Navegación por pila (Stack Navigator).
 import { StatusBar } from 'expo-status-bar';  // Barra de estado del sistema operativo.
 import 'react-native-reanimated';             // Requerido por Reanimated para funcionar antes de cualquier animación.
+import { LogBox } from 'react-native';
+
+// Ignora el error inofensivo de Keep Awake en emuladores/dispositivos
+LogBox.ignoreLogs(['Unable to activate keep awake']);
 
 import { useColorScheme } from '../hooks/use-color-scheme'; // Hook que detecta si el dispositivo está en modo oscuro.
 import { AuthProvider } from '../src/context/AuthContext';   // Proveedor de sesión de usuario (login/logout).

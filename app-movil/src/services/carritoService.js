@@ -44,6 +44,7 @@ function normalizeItem(item) {
         precio,
         cantidad,
         subtotal: precio * cantidad,
+        stock: Number(item.stock ?? producto.stock ?? 99),
     };
 }
 
@@ -91,6 +92,8 @@ const carritoService = {
                 nombre: producto.nombre,
                 precio: Number(producto.precio || 0),
                 cantidad,
+                stock: Number(producto.stock ?? 99),
+                imagen: producto.imagen || '',
             });
         }
         await writeLocalCart(localItems);

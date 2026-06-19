@@ -1,23 +1,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ARCHIVO: app/pedido-confirmado.tsx
 // PROPÓSITO: Pantalla de éxito tras confirmar una compra.
-//   - Recibe el parámetro ?pedidoId=... en la URL (query param, no ruta dinámica).
-//   - Si hay pedidoId, consulta el detalle del pedido para mostrarlo.
-//   - Si no lo hay (fallback), muestra solo el banner de confirmación.
+//   - Recibe el parámetro ?pedidoId=... en la URL.
+//   - Muestra un banner y resumen de confirmación centrado y minimalista.
 //   - Ofrece botones para ver todos los pedidos o seguir comprando.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── IMPORTACIONES ────────────────────────────────────────────────────────────
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, Text, SafeAreaView } from 'react-native';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '../components/themed-text';
-import { ThemedView } from '../components/themed-view';
 import pedidoService from '../src/services/pedidoService';
 
-// ── TIPO: Pedido ──────────────────────────────────────────────────────────────
-// Solo los campos necesarios para la pantalla de confirmación.
 type Pedido = {
   id?: string;
   _id?: string;
@@ -27,33 +23,19 @@ type Pedido = {
   telefono?: string;
 };
 
-// ── HELPER DE NAVEGACIÓN ──────────────────────────────────────────────────────
-// Cast necesario porque Expo Router tiifica estrictamente los paths.
-const routerReplace = (path: string) => (router as unknown as { replace: (p: string) => void }).replace(path);
-
-// ── HELPER DE FORMATO ─────────────────────────────────────────────────────────
-// Formatea un número a pesos colombianos.
 function formatCOP(value: unknown) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
 }
 
-// ── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 export default function PedidoConfirmadoScreen() {
-
-  // ── PARÁMETRO DE RUTA ─────────────────────────────────────────────────────
-  // pedidoId llega como query param: /pedido-confirmado?pedidoId=123
   const { pedidoId } = useLocalSearchParams();
 
-  // ── ESTADO LOCAL ──────────────────────────────────────────────────────────
-  const [pedido, setPedido]             = useState<Pedido | null>(null);
-  // loading=true solo si hay pedidoId que consultar.
-  const [loading, setLoading]           = useState(Boolean(pedidoId));
+  const [pedido, setPedido] = useState<Pedido | null>(null);
+  const [loading, setLoading] = useState(Boolean(pedidoId));
   const [errorMessage, setErrorMessage] = useState('');
 
-  // ── EFECTO: carga el detalle del pedido ───────────────────────────────────
   useEffect(() => {
     const loadPedido = async () => {
-      // Sin pedidoId no hay nada que consultar (modo fallback).
       if (!pedidoId) {
         setLoading(false);
         return;
@@ -62,110 +44,197 @@ export default function PedidoConfirmadoScreen() {
       setLoading(true);
       setErrorMessage('');
       try {
-        // GET /pedidos/:pedidoId — obtiene los datos del pedido recién creado.
         const data = await pedidoService.getPedidoById(pedidoId);
         setPedido(data);
       } catch (error: unknown) {
-        setErrorMessage((error as { message?: string })?.message || 'No se pudo cargar el pedido.');
+        setErrorMessage((error as { message?: string })?.message || 'No se pudo cargar la información del pedido.');
       } finally {
         setLoading(false);
       }
     };
 
     loadPedido();
-  }, [pedidoId]); // Se re-ejecuta si pedidoId cambia (aunque en la práctica no cambia).
+  }, [pedidoId]);
 
-  // ── ESTADO DE CARGA ───────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-        <ThemedText>Cargando información del pedido...</ThemedText>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#d4956a" />
+          <Text style={styles.loadingText}>Cargando información del pedido...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  // ── RENDERIZADO PRINCIPAL ─────────────────────────────────────────────────
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        
+        {/* Success Icon */}
+        <View style={styles.iconContainer}>
+          <Ionicons name="checkmark-circle-outline" size={54} color="#d4956a" />
+        </View>
 
-      {/* ── Banner de éxito ─────────────────────────────────────────────── */}
-      {/* Fondo azul con mensaje de confirmación. */}
-      <ThemedView style={styles.banner}>
-        <ThemedText type="title">Pedido confirmado</ThemedText>
-        <ThemedText style={styles.bannerText}>
-          Tu pedido se ha generado correctamente. Revisa los detalles y sigue comprando cuando quieras.
-        </ThemedText>
-      </ThemedView>
+        {/* Success Title & Message */}
+        <Text style={styles.title}>¡Pedido Confirmado!</Text>
+        <Text style={styles.subtitle}>
+          Tu pedido se ha generado correctamente. Hemos recibido tu compra y ya estamos procesándola.
+        </Text>
 
-      {/* Mensaje de error si no se pudo cargar el detalle */}
-      {errorMessage ? (
-        <ThemedText style={styles.error}>{errorMessage}</ThemedText>
-      ) : null}
+        {errorMessage ? (
+          <Text style={styles.error}>{errorMessage}</Text>
+        ) : null}
 
-      {/* ── Tarjeta de detalles del pedido ──────────────────────────────── */}
-      {/* Solo se muestra si la API devolvió datos del pedido. */}
-      {pedido ? (
-        <ThemedView style={styles.card}>
-          <ThemedText type="defaultSemiBold">Pedido #{pedido.id}</ThemedText>
-          {/* Estado del pedido (normalmente 'pendiente' justo después de crearlo). */}
-          <ThemedText>{pedido.estado ? `Estado: ${pedido.estado}` : 'Estado: pendiente'}</ThemedText>
-          <ThemedText>{pedido.direccionEnvio || '-'}</ThemedText>
-          <ThemedText>{pedido.telefono || '-'}</ThemedText>
-          <ThemedText style={styles.total}>Total: {formatCOP(pedido.total)}</ThemedText>
-        </ThemedView>
-      ) : null}
+        {/* Receipt-style Card */}
+        {pedido ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Resumen de Compra</Text>
+            <View style={styles.divider} />
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Pedido ID</Text>
+              <Text style={styles.infoValue}>#{pedido.id || pedido._id}</Text>
+            </View>
+            <View style={styles.divider} />
 
-      {/* ── Botones de acción ────────────────────────────────────────────── */}
-      {/* "Ver mis pedidos": navega al historial con replace (no apila). */}
-      <Pressable style={styles.primaryButton} onPress={() => router.replace('/mis-pedidos')}>
-        <ThemedText style={styles.primaryButtonText}>Ver mis pedidos</ThemedText>
-      </Pressable>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Dirección de envío</Text>
+              <Text style={styles.infoValue}>{pedido.direccionEnvio || '-'}</Text>
+            </View>
+            <View style={styles.divider} />
 
-      {/* "Seguir comprando": regresa a la tienda principal. */}
-      <Pressable style={styles.secondaryButton} onPress={() => routerReplace('/(tabs)/')}>
-        <ThemedText>Seguir comprando</ThemedText>
-      </Pressable>
-    </ScrollView>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Teléfono</Text>
+              <Text style={styles.infoValue}>{pedido.telefono || '-'}</Text>
+            </View>
+            <View style={styles.divider} />
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Total pagado</Text>
+              <Text style={styles.totalValue}>{formatCOP(pedido.total)}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Action Buttons */}
+        <View style={styles.buttonsContainer}>
+          <Pressable style={styles.primaryButton} onPress={() => router.replace('/mis-pedidos')}>
+            <Text style={styles.primaryButtonText}>Ver mis pedidos</Text>
+          </Pressable>
+
+          <Pressable style={styles.secondaryButton} onPress={() => router.replace('/')}>
+            <Text style={styles.secondaryButtonText}>Seguir comprando</Text>
+          </Pressable>
+        </View>
+
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// ── ESTILOS ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#fdf8f4' },
   container: { flex: 1 },
-  content: { padding: 16, gap: 16 },
-  // Centra el spinner de carga.
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16 },
-  // Banner azul con esquinas redondeadas.
-  banner: { borderRadius: 16, padding: 18, backgroundColor: '#0a7ea4', gap: 10 },
-  // Texto del banner sobre fondo azul: color muy claro para contraste.
-  bannerText: { color: '#eafcff' },
-  // Tarjeta de resumen del pedido: borde gris, fondo blanco.
+  content: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    gap: 16,
+  },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+  loadingText: { color: '#9e8879', fontSize: 14, fontWeight: '600' },
+  iconContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(212, 149, 106, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#3d2c1e',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#9e8879',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  error: { color: '#e07070', fontWeight: '600', textAlign: 'center', marginVertical: 4 },
   card: {
-    borderRadius: 12,
-    padding: 14,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e8e8e8',
-    gap: 8,
+    borderColor: '#e8ddd5',
+    padding: 18,
+    width: '100%',
+    maxWidth: 320,
+    gap: 2,
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    marginBottom: 8,
   },
-  // Total con separación superior y negrita para destacarlo.
-  total: { marginTop: 10, fontWeight: '700' },
-  error: { color: '#b93a32' },
-  // Botón primario azul (acción principal: ver pedidos).
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#3d2c1e',
+    paddingVertical: 4,
+    textAlign: 'center',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  infoLabel: { fontSize: 12, color: '#9e8879', fontWeight: '600' },
+  infoValue: { fontSize: 12, color: '#3d2c1e', fontWeight: '700' },
+  totalValue: { fontSize: 14, color: '#192847', fontWeight: '800' },
+  divider: { height: 1, backgroundColor: '#f3ece6' },
+  buttonsContainer: {
+    width: '100%',
+    maxWidth: 320,
+    gap: 12,
+    marginTop: 8,
+  },
   primaryButton: {
-    borderRadius: 10,
-    backgroundColor: '#0a7ea4',
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#192847',
+    height: 48,
+    shadowColor: '#192847',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  primaryButtonText: { color: '#fff', fontWeight: '700' },
-  // Botón secundario: borde gris, fondo blanco (acción secundaria: seguir comprando).
+  primaryButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
   secondaryButton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#d5d5d5',
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e8ddd5',
+    height: 48,
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
+  secondaryButtonText: { color: '#9e8879', fontWeight: '700', fontSize: 14 },
 });

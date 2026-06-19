@@ -1,165 +1,423 @@
 /**
- * Gestión de categorías en el panel de administración
- * Lista de todas las categorías del sistema con descripción y estado
- * Permite buscar en tiempo real y navega entre páginas
- * Solo administradores pueden eliminar categorías
+ * Pantalla de gestión de categorías — panel de administración.
+ * Diseño pastel cálido • Toast • Modal de detalle • Botón toggle circular
  */
 
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
-import { router } from "expo-router";
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/themed-text';
+import AdminToast from '../../components/admin-toast';
 import apiClient from '../../src/api/apiClient';
-import { useAuth } from '../../src/context/AuthContext'
+import { useAuth } from '../../src/context/AuthContext';
 
-/**
- * tipo de categoria
- * estructura de la categoria recibida del backend
- */
 type Categoria = {
-    id?: number | string;
-    nombre?: string;
-    descripcion?: string;
-    activo?: boolean;
+  id?: number | string;
+  nombre?: string;
+  descripcion?: string;
+  activo?: boolean;
 };
 
 type AuthUser = { rol?: string };
 
-/**
- * helpers de navegacion 
- */
-const push = (path: string) => 
-(router as unknown as { push: (p: string) => void}).push(path);
+const push = (path: string) =>
+  (router as unknown as { push: (p: string) => void }).push(path);
 
 const pushParams = (pathname: string, params: Record<string, string>) =>
-(router as unknown as { push: (p: {pathname: string; params: Record<string, string> }) => void }).push({ pathname, params});
+  (router as unknown as { push: (p: { pathname: string; params: Record<string, string> }) => void }).push({ pathname, params });
 
-export default function AdminCategoriasScreen() {
-    const { user } = useAuth() as { user: AuthUser | null };
-    
-    const [categorias, setCategorias] = useState<Categoria[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [errorMessage, setErrorMessage] = useState('');
-
-    const fetchCategorias = async (search = '') => {
-        setLoading(true);
-        setErrorMessage('');
-        try {
-            const res = await apiClient.get('/admin/categorias');
-            const categoriasData: Categoria[] = res.data?.data?.categorias || [];
-            setCategorias(categoriasData);
-        } catch (error: unknown) {
-            setErrorMessage((error as { message?: string })?.message || 'Error al cargar categorías');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchCategorias();
-    }, []);
-
-    const isAdmin = user?.rol === 'administrador';
-
-    // ── RENDERIZADO ───────────────────────────────────────────────────────────
-    return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <ThemedText type="title">Categorías</ThemedText>
-                <ThemedText style={styles.subtitle}>Administra tus categorías de forma rápida y clara.</ThemedText>
-            </View>
-
-            {/* Botón para crear una nueva categoría */}
-            <Pressable 
-                style={styles.createBtn} 
-                onPress={() => push('/admin/categoria-form')}
-            >
-                <ThemedText style={styles.createBtnText}>+ Crear</ThemedText>
-            </Pressable>
-
-            {/* Spinner de carga */}
-            {loading ? (
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" />
-                    <ThemedText>Cargando categorías...</ThemedText>
-                </View>
-            ) : null}
-
-            {/* Mensaje de error */}
-            {errorMessage ? <ThemedText style={styles.error}>{errorMessage}</ThemedText> : null}
-
-            {/* ── LISTA DE CATEGORÍAS ──────────────────────────────────────────── */}
-            <FlatList
-                data={categorias}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        {/* Área presionable para editar */}
-                        <Pressable
-                            style={{ flex: 1 }}
-                            onPress={() => pushParams('/admin/categoria-form', { categoria: JSON.stringify(item) })}
-                        >
-                            <View style={styles.cardBody}>
-                                <ThemedText type="defaultSemiBold" style={styles.cardTitle}>{item.nombre}</ThemedText>
-                                <ThemedText style={styles.cardDescription} numberOfLines={2}>{item.descripcion || 'Sin descripción'}</ThemedText>
-                            </View>
-                        </Pressable>
-
-                        {/* ── BOTÓN DE ESTADO (solo admin) ──────────────────────── */}
-                        {isAdmin && (
-                            <View style={styles.actionsRow}>
-                                <Pressable
-                                    style={[styles.actionBtn, styles.viewBtn]}
-                                    onPress={() => pushParams('/admin/categoria-form', { categoria: JSON.stringify(item) })}
-                                >
-                                    <ThemedText style={[styles.actionBtnText, styles.viewBtnText]}>Ver</ThemedText>
-                                </Pressable>
-                                <Pressable
-                                    style={[
-                                        styles.actionBtn,
-                                        item.activo ? styles.deactivateBtn : styles.activateBtn,
-                                    ]}
-                                    onPress={async () => {
-                                        try {
-                                            await apiClient.patch(`/admin/categorias/${item.id}/toggle`);
-                                            fetchCategorias();
-                                        } catch {
-                                            Alert.alert('Error', 'No se pudo cambiar el estado');
-                                        }
-                                    }}
-                                >
-                                    <ThemedText style={styles.actionBtnText}>{item.activo ? 'Desactivar' : 'Activar'}</ThemedText>
-                                </Pressable>
-                            </View>
-                        )}
-                    </View>
-                )}
-                ListEmptyComponent={!loading && !errorMessage ? <ThemedText>No hay categorías.</ThemedText> : null}
-                style={styles.list}
-            />
-        </View>
-    );
+function useToast(duration = 2800) {
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    if (timer.current) clearTimeout(timer.current);
+    setToast({ visible: true, message, type });
+    timer.current = setTimeout(() => setToast(t => ({ ...t, visible: false })), duration);
+  };
+  return { toast, showToast };
 }
 
-// ── ESTILOS ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-    container: { flex: 1, padding: 14, gap: 10, backgroundColor: '#f8fafc' },
-    header: { gap: 4, marginBottom: 10 },
-    centered: { alignItems: 'center', gap: 10, marginVertical: 20 },
-    subtitle: { color: '#64748b', fontSize: 13, lineHeight: 18, maxWidth: '92%' },
-    error: { color: '#ef4444' },
-    createBtn: { backgroundColor: '#0f172a', borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-    createBtnText: { color: '#fff', fontWeight: '700', letterSpacing: 0.4 },
-    list: { flex: 1 },
-    card: { borderRadius: 16, padding: 14, backgroundColor: '#fff', marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
-    cardBody: { gap: 8 },
-    cardTitle: { fontSize: 15, color: '#0f172a' },
-    cardDescription: { color: '#475569', fontSize: 13, lineHeight: 18 },
-    actionsRow: { marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-    actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
-    actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-    viewBtn: { backgroundColor: '#e2e8f0' },
-    viewBtnText: { color: '#0f172a' },
-    deactivateBtn: { backgroundColor: '#047857' },
-    activateBtn: { backgroundColor: '#2563eb' },
+export default function AdminCategoriasScreen() {
+  const { user } = useAuth() as { user: AuthUser | null };
+  const isAdmin = user?.rol === 'administrador';
+
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [busqueda, setBusqueda] = useState('');
+  const [selected, setSelected] = useState<Categoria | null>(null);
+
+  // Filtros adicionales
+  const [showFiltros, setShowFiltros] = useState(false);
+  const [filtroActivo, setFiltroActivo] = useState<'all' | 'true' | 'false'>('all');
+  const [ordenarPor, setOrdenarPor] = useState<'nombre' | 'reciente' | 'antiguo'>('nombre');
+
+  const [subcategoriasVinculadas, setSubcategoriasVinculadas] = useState<any[]>([]);
+  const [loadingSubs, setLoadingSubs] = useState(false);
+
+  const { toast, showToast } = useToast();
+
+  useEffect(() => {
+    if (selected && selected.id) {
+      setLoadingSubs(true);
+      apiClient.get(`/admin/subcategorias?categoriaId=${selected.id}`)
+        .then(res => {
+          setSubcategoriasVinculadas(res.data?.data?.subcategorias || []);
+        })
+        .catch(() => {
+          setSubcategoriasVinculadas([]);
+        })
+        .finally(() => setLoadingSubs(false));
+    } else {
+      setSubcategoriasVinculadas([]);
+    }
+  }, [selected]);
+
+  const fetchCategorias = async (
+    search = '',
+    isRefresh = false,
+    activeFilter = filtroActivo,
+    sortVal = ordenarPor
+  ) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setErrorMessage('');
+    try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set('buscar', search.trim());
+      if (activeFilter !== 'all') params.set('activo', activeFilter);
+
+      const res = await apiClient.get(`/admin/categorias?${params.toString()}`);
+      let data: Categoria[] = res.data?.data?.categorias || [];
+
+      // Ordenar en el cliente (timestamps y nombre)
+      if (sortVal === 'reciente') {
+        data.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      } else if (sortVal === 'antiguo') {
+        data.sort((a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      } else {
+        data.sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || ''));
+      }
+
+      setCategorias(data);
+    } catch (error: unknown) {
+      setErrorMessage((error as { message?: string })?.message || 'Error al cargar categorías');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategorias(busqueda);
+  }, [filtroActivo, ordenarPor]);
+
+  const handleToggle = async (item: Categoria) => {
+    try {
+      await apiClient.patch(`/admin/categorias/${item.id}/toggle`);
+      showToast(`"${item.nombre}" ${item.activo ? 'desactivada' : 'activada'}`, 'success');
+      fetchCategorias(busqueda);
+    } catch {
+      showToast('No se pudo cambiar el estado', 'error');
+    }
+  };
+
+  return (
+    <View style={s.container}>
+      <View style={s.header}>
+        <ThemedText style={s.title}>🗂️ Categorías</ThemedText>
+        <ThemedText style={s.subtitle}>Organiza las categorías de tu catálogo</ThemedText>
+      </View>
+
+      <View style={s.searchRow}>
+        <View style={s.inputWrap}>
+          <Ionicons name="search-outline" size={15} color="#b8a99a" />
+          <TextInput
+            placeholder="Buscar categoría..."
+            placeholderTextColor="#b8a99a"
+            value={busqueda}
+            onChangeText={(t) => { setBusqueda(t); fetchCategorias(t); }}
+            style={s.input}
+          />
+        </View>
+        <Pressable
+          style={[s.filterToggleBtn, showFiltros && s.filterToggleBtnActive]}
+          onPress={() => setShowFiltros(v => !v)}
+        >
+          <Ionicons name="filter-outline" size={18} color={showFiltros ? '#fff' : '#d4956a'} />
+        </Pressable>
+        <Pressable style={s.createBtn} onPress={() => push('/admin/categoria-form')}>
+          <Ionicons name="add-circle-outline" size={18} color="#fff" />
+          <ThemedText style={s.createBtnText}>Nueva</ThemedText>
+        </Pressable>
+      </View>
+
+      {/* Panel de Filtros Desplegable */}
+      {showFiltros && (
+        <View style={s.filterPanel}>
+          {/* Fila: Estado */}
+          <View style={s.filterGroup}>
+            <ThemedText style={s.filterLabel}>Estado</ThemedText>
+            <View style={s.pillRow}>
+              {(['all', 'true', 'false'] as const).map((st) => (
+                <Pressable
+                  key={st}
+                  style={[s.filterPill, filtroActivo === st && s.filterPillActive]}
+                  onPress={() => setFiltroActivo(st)}
+                >
+                  <ThemedText style={[s.filterPillText, filtroActivo === st && s.filterPillTextActive]}>
+                    {st === 'all' ? 'Todos' : st === 'true' ? 'Activos' : 'Inactivos'}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Fila: Ordenamiento */}
+          <View style={s.filterGroup}>
+            <ThemedText style={s.filterLabel}>Ordenar por</ThemedText>
+            <View style={s.pillRow}>
+              {(['nombre', 'reciente', 'antiguo'] as const).map((ord) => (
+                <Pressable
+                  key={ord}
+                  style={[s.filterPill, ordenarPor === ord && s.filterPillActive]}
+                  onPress={() => setOrdenarPor(ord)}
+                >
+                  <ThemedText style={[s.filterPillText, ordenarPor === ord && s.filterPillTextActive]}>
+                    {ord === 'nombre' ? 'Nombre A-Z' : ord === 'reciente' ? 'Más nuevos' : 'Más antiguos'}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Botón limpiar */}
+          {(filtroActivo !== 'all' || ordenarPor !== 'nombre') && (
+            <Pressable
+              style={s.clearFiltersBtn}
+              onPress={() => {
+                setFiltroActivo('all');
+                setOrdenarPor('nombre');
+              }}
+            >
+              <Ionicons name="trash-outline" size={14} color="#c0392b" />
+              <ThemedText style={s.clearFiltersText}>Limpiar filtros</ThemedText>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {loading && <View style={s.centered}><ActivityIndicator size="large" color="#d4956a" /></View>}
+      {!!errorMessage && <ThemedText style={s.error}>{errorMessage}</ThemedText>}
+
+      <FlatList
+        data={categorias}
+        keyExtractor={(item) => String(item.id)}
+        style={s.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchCategorias(busqueda, true)} colors={['#d4956a']} tintColor="#d4956a" />
+        }
+        renderItem={({ item }) => (
+          <Pressable style={s.card} onPress={() => setSelected(item)}>
+            <View style={s.iconBox}>
+              <ThemedText style={s.iconEmoji}>🗂️</ThemedText>
+            </View>
+            <View style={s.cardBody}>
+              <ThemedText style={s.cardName} numberOfLines={1}>{item.nombre}</ThemedText>
+              <ThemedText style={s.cardDesc} numberOfLines={1}>{item.descripcion || 'Sin descripción'}</ThemedText>
+              <View style={[s.pill, item.activo ? s.pillGreen : s.pillRose]}>
+                <ThemedText style={[s.pillText, item.activo ? s.pillTextGreen : s.pillTextRose]}>
+                  {item.activo ? 'Activo' : 'Inactivo'}
+                </ThemedText>
+              </View>
+            </View>
+            {isAdmin && (
+              <Pressable
+                style={[s.eye, item.activo ? s.eyeGreen : s.eyeRose]}
+                onPress={() => handleToggle(item)}
+              >
+                <Ionicons name={item.activo ? 'eye-outline' : 'eye-off-outline'} size={17} color={item.activo ? '#2d6a4f' : '#c0392b'} />
+              </Pressable>
+            )}
+          </Pressable>
+        )}
+        ListEmptyComponent={!loading && !errorMessage ? (
+          <View style={s.empty}>
+            <ThemedText style={s.emptyIcon}>🗂️</ThemedText>
+            <ThemedText style={s.emptyText}>No hay categorías aún</ThemedText>
+          </View>
+        ) : null}
+      />
+
+      {/* Modal detalle */}
+      <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <View style={s.handle} />
+            {selected && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={s.modalBody}>
+                  <View style={s.modalIconBig}>
+                    <ThemedText style={{ fontSize: 44 }}>🗂️</ThemedText>
+                  </View>
+                  <View style={s.modalTopRow}>
+                    <ThemedText style={s.modalName}>{selected.nombre}</ThemedText>
+                    <View style={[s.pill, selected.activo ? s.pillGreen : s.pillRose]}>
+                      <ThemedText style={[s.pillText, selected.activo ? s.pillTextGreen : s.pillTextRose]}>
+                        {selected.activo ? 'Activo' : 'Inactivo'}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <ThemedText style={s.sectionLabel}>Descripción</ThemedText>
+                  <ThemedText style={s.modalDesc}>{selected.descripcion || 'Sin descripción'}</ThemedText>
+                  <View style={s.infoCell}>
+                    <ThemedText style={s.cellLabel}>ID de categoría</ThemedText>
+                    <ThemedText style={s.cellValue}>#{selected.id}</ThemedText>
+                  </View>
+
+                  <ThemedText style={s.sectionLabel}>Subcategorías Vinculadas ({subcategoriasVinculadas.length})</ThemedText>
+                  {loadingSubs ? (
+                    <ActivityIndicator size="small" color="#d4956a" style={{ marginVertical: 12 }} />
+                  ) : subcategoriasVinculadas.length > 0 ? (
+                    <View style={s.subList}>
+                      {subcategoriasVinculadas.map((sub) => (
+                        <Pressable
+                          key={String(sub.id)}
+                          style={s.subItem}
+                          onPress={() => {
+                            setSelected(null);
+                            pushParams('/admin/subcategorias', { subcategoriaId: String(sub.id) });
+                          }}
+                        >
+                          <ThemedText style={s.subItemText} numberOfLines={1}>🏷️ {sub.nombre}</ThemedText>
+                          <Ionicons name="chevron-forward" size={14} color="#d0c4bb" />
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : (
+                    <ThemedText style={s.noSubsText}>No hay subcategorías vinculadas a esta categoría</ThemedText>
+                  )}
+                  <View style={s.modalActions}>
+                    {isAdmin && (
+                      <Pressable
+                        style={[s.modalBtn, selected.activo ? s.btnRed : s.btnGreen]}
+                        onPress={async () => { await handleToggle(selected); setSelected(null); }}
+                      >
+                        <Ionicons name={selected.activo ? 'eye-off-outline' : 'eye-outline'} size={17} color="#fff" />
+                        <ThemedText style={s.modalBtnText}>{selected.activo ? 'Desactivar' : 'Activar'}</ThemedText>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      style={[s.modalBtn, s.btnAmber]}
+                      onPress={() => { setSelected(null); pushParams('/admin/categoria-form', { categoria: JSON.stringify(selected) }); }}
+                    >
+                      <Ionicons name="create-outline" size={17} color="#fff" />
+                      <ThemedText style={s.modalBtnText}>Editar</ThemedText>
+                    </Pressable>
+                  </View>
+                </View>
+              </ScrollView>
+            )}
+            <Pressable style={s.closeBtn} onPress={() => setSelected(null)}>
+              <ThemedText style={s.closeBtnText}>Cerrar</ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <AdminToast message={toast.message} type={toast.type} visible={toast.visible} />
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fdf8f4', padding: 16, gap: 12 },
+  header: { gap: 2, marginBottom: 2 },
+  title: { fontSize: 24, fontWeight: '800', color: '#3d2c1e' },
+  subtitle: { fontSize: 13, color: '#9e8879' },
+
+  searchRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  inputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff9f5', borderRadius: 14, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 12, height: 44, gap: 8 },
+  input: { flex: 1, fontSize: 14, color: '#3d2c1e' },
+  createBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#d4956a', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11 },
+  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+  centered: { alignItems: 'center', paddingVertical: 24 },
+  error: { color: '#e07070', fontSize: 13 },
+  list: { flex: 1 },
+
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 18, padding: 14, marginBottom: 10, shadowColor: '#c4a882', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  iconBox: { width: 52, height: 52, borderRadius: 16, backgroundColor: '#fef3e2', alignItems: 'center', justifyContent: 'center' },
+  iconEmoji: { fontSize: 24 },
+  cardBody: { flex: 1, gap: 4 },
+  cardName: { fontSize: 15, fontWeight: '700', color: '#3d2c1e' },
+  cardDesc: { fontSize: 13, color: '#9e8879' },
+  pill: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 },
+  pillGreen: { backgroundColor: '#d8f3dc' },
+  pillRose: { backgroundColor: '#fde8e8' },
+  pillText: { fontSize: 11, fontWeight: '700' },
+  pillTextGreen: { color: '#2d6a4f' },
+  pillTextRose: { color: '#c0392b' },
+
+  eye: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  eyeGreen: { backgroundColor: '#d8f3dc', borderColor: '#b7e4c7' },
+  eyeRose: { backgroundColor: '#fde8e8', borderColor: '#f4baba' },
+
+  empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  emptyIcon: { fontSize: 40 },
+  emptyText: { fontSize: 15, color: '#b8a99a' },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(61,44,30,0.35)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 26, borderTopRightRadius: 26, maxHeight: '80%', paddingBottom: 16 },
+  handle: { width: 40, height: 4, backgroundColor: '#e8ddd5', borderRadius: 4, alignSelf: 'center', marginTop: 10, marginBottom: 6 },
+  modalBody: { padding: 20, gap: 12 },
+  modalIconBig: { alignSelf: 'center', marginBottom: 4 },
+  modalTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  modalName: { fontSize: 20, fontWeight: '800', color: '#3d2c1e', flex: 1 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#b8a99a', textTransform: 'uppercase', letterSpacing: 0.8 },
+  modalDesc: { fontSize: 14, color: '#7c6455', lineHeight: 20 },
+  infoCell: { backgroundColor: '#fdf8f4', borderRadius: 14, padding: 12, gap: 4 },
+  cellLabel: { fontSize: 11, color: '#b8a99a', fontWeight: '600', textTransform: 'uppercase' },
+  cellValue: { fontSize: 14, fontWeight: '700', color: '#3d2c1e' },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
+  modalBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 13, borderRadius: 14 },
+  btnGreen: { backgroundColor: '#52b788' },
+  btnRed: { backgroundColor: '#e07070' },
+  btnAmber: { backgroundColor: '#d4956a' },
+  modalBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  closeBtn: { marginHorizontal: 20, marginTop: 6, paddingVertical: 14, borderRadius: 14, backgroundColor: '#fdf8f4', alignItems: 'center' },
+  closeBtnText: { color: '#9e8879', fontWeight: '700', fontSize: 14 },
+
+  // Panel de filtros
+  filterToggleBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#fff9f5', borderWidth: 1, borderColor: '#e8ddd5', alignItems: 'center', justifyContent: 'center' },
+  filterToggleBtnActive: { backgroundColor: '#d4956a', borderColor: '#d4956a' },
+  filterPanel: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: '#e8ddd5', padding: 14, gap: 10, shadowColor: '#c4a882', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  filterGroup: { gap: 6 },
+  filterLabel: { fontSize: 11, fontWeight: '700', color: '#b8a99a', textTransform: 'uppercase', letterSpacing: 0.6 },
+  pillRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  scrollPillRow: { gap: 6, paddingRight: 12 },
+  filterPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: '#fdf8f4', borderWidth: 1, borderColor: '#e8ddd5', flexDirection: 'row', alignItems: 'center' },
+  filterPillActive: { backgroundColor: '#fff3e6', borderColor: '#d4956a' },
+  filterPillText: { fontSize: 12, color: '#7c6455', fontWeight: '600' },
+  filterPillTextActive: { color: '#d4956a', fontWeight: '700' },
+  clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0ede8', marginTop: 4 },
+  clearFiltersText: { fontSize: 12, fontWeight: '700', color: '#c0392b' },
+
+  subList: { gap: 8, width: '100%', marginTop: 4 },
+  subItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fdf8f4', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
+  subItemText: { fontSize: 13, fontWeight: '600', color: '#3d2c1e', flex: 1, marginRight: 8 },
+  noSubsText: { fontSize: 13, color: '#9e8879', fontStyle: 'italic', marginVertical: 4 },
 });
