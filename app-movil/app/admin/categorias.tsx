@@ -3,7 +3,7 @@
  * Diseño pastel cálido • Toast • Modal de detalle • Botón toggle circular
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,10 +15,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { ThemedText } from '../../components/themed-text';
 import AdminToast from '../../components/admin-toast';
+import ConfirmModal from '../../components/confirm-modal';
 import apiClient from '../../src/api/apiClient';
 import { useAuth } from '../../src/context/AuthContext';
 
@@ -58,14 +60,24 @@ export default function AdminCategoriasScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [selected, setSelected] = useState<Categoria | null>(null);
+  const [pagina, setPagina] = useState(1);
 
   // Filtros adicionales
   const [showFiltros, setShowFiltros] = useState(false);
   const [filtroActivo, setFiltroActivo] = useState<'all' | 'true' | 'false'>('all');
+  const [dropdownActivoOpen, setDropdownActivoOpen] = useState(false);
+  const [textoBuscarActivo, setTextoBuscarActivo] = useState('');
   const [ordenarPor, setOrdenarPor] = useState<'nombre' | 'reciente' | 'antiguo'>('nombre');
+  const [dropdownOrdenOpen, setDropdownOrdenOpen] = useState(false);
+  const [textoBuscarOrden, setTextoBuscarOrden] = useState('');
 
   const [subcategoriasVinculadas, setSubcategoriasVinculadas] = useState<any[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
+
+  const params = useLocalSearchParams<{ toastMessage?: string; toastType?: string }>();
+
+  const [showConfirmToggle, setShowConfirmToggle] = useState(false);
+  const [toggleCategory, setToggleCategory] = useState<Categoria | null>(null);
 
   const { toast, showToast } = useToast();
 
@@ -120,11 +132,31 @@ export default function AdminCategoriasScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (params.toastMessage) {
+        showToast(params.toastMessage, (params.toastType as any) || 'success');
+        router.setParams({ toastMessage: '', toastType: '' });
+      }
+      fetchCategorias(busqueda);
+    }, [params.toastMessage, params.toastType])
+  );
+
   useEffect(() => {
+    setPagina(1);
     fetchCategorias(busqueda);
   }, [filtroActivo, ordenarPor]);
 
-  const handleToggle = async (item: Categoria) => {
+  const handleToggle = (item: Categoria) => {
+    setToggleCategory(item);
+    setShowConfirmToggle(true);
+  };
+
+  const confirmToggle = async () => {
+    if (!toggleCategory) return;
+    setShowConfirmToggle(false);
+    const item = toggleCategory;
+    setToggleCategory(null);
     try {
       await apiClient.patch(`/admin/categorias/${item.id}/toggle`);
       showToast(`"${item.nombre}" ${item.activo ? 'desactivada' : 'activada'}`, 'success');
@@ -132,6 +164,44 @@ export default function AdminCategoriasScreen() {
     } catch {
       showToast('No se pudo cambiar el estado', 'error');
     }
+  };
+
+  const totalPaginas = Math.ceil(categorias.length / 10) || 1;
+  const categoriasVisibles = categorias.slice((pagina - 1) * 10, pagina * 10);
+
+  const ListFooter = () => {
+    if (loading || categorias.length === 0 || totalPaginas <= 1) {
+      return <View style={{ height: 24 }} />;
+    }
+    return (
+      <View style={s.pagBarFooter}>
+        <Pressable
+          style={[s.pagCircleBtn, pagina <= 1 && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.max(1, p - 1))}
+          disabled={pagina <= 1}>
+          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+
+        <View style={s.pagDots}>
+          {Array.from({ length: totalPaginas }, (_, i) => (
+            <View
+              key={i}
+              style={[
+                s.pagDot,
+                i + 1 === pagina && s.pagDotActive
+              ]}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          style={[s.pagCircleBtn, pagina >= totalPaginas && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+          disabled={pagina >= totalPaginas}>
+          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+      </View>
+    );
   };
 
   return (
@@ -148,7 +218,7 @@ export default function AdminCategoriasScreen() {
             placeholder="Buscar categoría..."
             placeholderTextColor="#b8a99a"
             value={busqueda}
-            onChangeText={(t) => { setBusqueda(t); fetchCategorias(t); }}
+            onChangeText={(t) => { setBusqueda(t); setPagina(1); fetchCategorias(t); }}
             style={s.input}
           />
         </View>
@@ -170,46 +240,144 @@ export default function AdminCategoriasScreen() {
           {/* Fila: Estado */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Estado</ThemedText>
-            <View style={s.pillRow}>
-              {(['all', 'true', 'false'] as const).map((st) => (
-                <Pressable
-                  key={st}
-                  style={[s.filterPill, filtroActivo === st && s.filterPillActive]}
-                  onPress={() => setFiltroActivo(st)}
-                >
-                  <ThemedText style={[s.filterPillText, filtroActivo === st && s.filterPillTextActive]}>
-                    {st === 'all' ? 'Todos' : st === 'true' ? 'Activos' : 'Inactivos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="toggle-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar estado..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarActivo}
+                  onFocus={() => setDropdownActivoOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarActivo(text);
+                    setDropdownActivoOpen(true);
+                    setFiltroActivo('all');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarActivo.length > 0 || filtroActivo !== 'all' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarActivo('');
+                    setFiltroActivo('all');
+                    setDropdownActivoOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownActivoOpen(!dropdownActivoOpen)}>
+                    <Ionicons name={dropdownActivoOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownActivoOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'all', label: '📋 Todos' },
+                      { key: 'true', label: '🟢 Activos' },
+                      { key: 'false', label: '🔴 Inactivos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarActivo.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = filtroActivo === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setFiltroActivo(item.key as any);
+                              setTextoBuscarActivo(item.label);
+                              setDropdownActivoOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Fila: Ordenamiento */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Ordenar por</ThemedText>
-            <View style={s.pillRow}>
-              {(['nombre', 'reciente', 'antiguo'] as const).map((ord) => (
-                <Pressable
-                  key={ord}
-                  style={[s.filterPill, ordenarPor === ord && s.filterPillActive]}
-                  onPress={() => setOrdenarPor(ord)}
-                >
-                  <ThemedText style={[s.filterPillText, ordenarPor === ord && s.filterPillTextActive]}>
-                    {ord === 'nombre' ? 'Nombre A-Z' : ord === 'reciente' ? 'Más nuevos' : 'Más antiguos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="swap-vertical-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar orden..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarOrden}
+                  onFocus={() => setDropdownOrdenOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarOrden(text);
+                    setDropdownOrdenOpen(true);
+                    setOrdenarPor('nombre');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarOrden.length > 0 || ordenarPor !== 'nombre' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarOrden('');
+                    setOrdenarPor('nombre');
+                    setDropdownOrdenOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownOrdenOpen(!dropdownOrdenOpen)}>
+                    <Ionicons name={dropdownOrdenOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownOrdenOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'nombre', label: '🔤 Nombre A-Z' },
+                      { key: 'reciente', label: '🕓 Más nuevos' },
+                      { key: 'antiguo', label: '📅 Más antiguos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarOrden.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = ordenarPor === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setOrdenarPor(item.key as any);
+                              setTextoBuscarOrden(item.label);
+                              setDropdownOrdenOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Botón limpiar */}
-          {(filtroActivo !== 'all' || ordenarPor !== 'nombre') && (
+          {(filtroActivo !== 'all' || ordenarPor !== 'nombre' || textoBuscarActivo !== '' || textoBuscarOrden !== '') && (
             <Pressable
               style={s.clearFiltersBtn}
               onPress={() => {
                 setFiltroActivo('all');
                 setOrdenarPor('nombre');
+                setTextoBuscarActivo('');
+                setTextoBuscarOrden('');
+                setDropdownActivoOpen(false);
+                setDropdownOrdenOpen(false);
               }}
             >
               <Ionicons name="trash-outline" size={14} color="#c0392b" />
@@ -223,12 +391,12 @@ export default function AdminCategoriasScreen() {
       {!!errorMessage && <ThemedText style={s.error}>{errorMessage}</ThemedText>}
 
       <FlatList
-        data={categorias}
+        data={categoriasVisibles}
         keyExtractor={(item) => String(item.id)}
         style={s.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchCategorias(busqueda, true)} colors={['#d4956a']} tintColor="#d4956a" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setPagina(1); fetchCategorias(busqueda, true); }} colors={['#d4956a']} tintColor="#d4956a" />
         }
         renderItem={({ item }) => (
           <Pressable style={s.card} onPress={() => setSelected(item)}>
@@ -260,6 +428,7 @@ export default function AdminCategoriasScreen() {
             <ThemedText style={s.emptyText}>No hay categorías aún</ThemedText>
           </View>
         ) : null}
+        ListFooterComponent={<ListFooter />}
       />
 
       {/* Modal detalle */}
@@ -339,6 +508,20 @@ export default function AdminCategoriasScreen() {
       </Modal>
 
       <AdminToast message={toast.message} type={toast.type} visible={toast.visible} />
+      <ConfirmModal
+        visible={showConfirmToggle}
+        title={toggleCategory?.activo ? 'Desactivar Categoría' : 'Activar Categoría'}
+        message={`¿Estás seguro de que deseas ${toggleCategory?.activo ? 'desactivar' : 'activar'} la categoría "${toggleCategory?.nombre}"?`}
+        icon={toggleCategory?.activo ? 'eye-off-outline' : 'eye-outline'}
+        confirmText={toggleCategory?.activo ? 'Desactivar' : 'Activar'}
+        cancelText="Cancelar"
+        isDestructive={toggleCategory?.activo}
+        onConfirm={confirmToggle}
+        onCancel={() => {
+          setShowConfirmToggle(false);
+          setToggleCategory(null);
+        }}
+      />
     </View>
   );
 }
@@ -407,14 +590,61 @@ const s = StyleSheet.create({
   filterPanel: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: '#e8ddd5', padding: 14, gap: 10, shadowColor: '#c4a882', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   filterGroup: { gap: 6 },
   filterLabel: { fontSize: 11, fontWeight: '700', color: '#b8a99a', textTransform: 'uppercase', letterSpacing: 0.6 },
-  pillRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  scrollPillRow: { gap: 6, paddingRight: 12 },
-  filterPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: '#fdf8f4', borderWidth: 1, borderColor: '#e8ddd5', flexDirection: 'row', alignItems: 'center' },
-  filterPillActive: { backgroundColor: '#fff3e6', borderColor: '#d4956a' },
-  filterPillText: { fontSize: 12, color: '#7c6455', fontWeight: '600' },
-  filterPillTextActive: { color: '#d4956a', fontWeight: '700' },
   clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0ede8', marginTop: 4 },
   clearFiltersText: { fontSize: 12, fontWeight: '700', color: '#c0392b' },
+  filterSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf8f4', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 10, height: 38, gap: 6, marginBottom: 4 },
+  filterSearchInput: { flex: 1, fontSize: 13, color: '#3d2c1e', padding: 0 },
+  dropdownContainer: { position: 'relative', zIndex: 10, width: '100%' },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', marginTop: 4, shadowColor: '#c4a882', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4, overflow: 'hidden' },
+  dropdownItem: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fdf8f4' },
+  dropdownItemActive: { backgroundColor: '#fff3e6' },
+  dropdownItemText: { fontSize: 13, color: '#3d2c1e', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
+
+  // Paginación minimalista en footer
+  pagBarFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  pagCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  pagCircleBtnOff: {
+    backgroundColor: '#f5f0ec',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pagDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e8ddd5',
+  },
+  pagDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#d4956a',
+  },
 
   subList: { gap: 8, width: '100%', marginTop: 4 },
   subItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fdf8f4', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },

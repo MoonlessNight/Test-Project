@@ -16,9 +16,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/themed-text';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import ConfirmModal from '../../components/confirm-modal';
 import AdminToast from '../../components/admin-toast';
 import apiClient from '../../src/api/apiClient';
 
@@ -100,9 +103,8 @@ export default function AdminPedidoScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [busqueda, setBusqueda] = useState('');
+  const [textoBuscarUsuario, setTextoBuscarUsuario] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
   const [selected, setSelected] = useState<Pedido | null>(null);
 
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -113,8 +115,35 @@ export default function AdminPedidoScreen() {
   const [showFiltros, setShowFiltros] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<string>('all');
   const [ordenarPor, setOrdenarPor] = useState<'reciente' | 'antiguo' | 'totalDesc' | 'totalAsc'>('reciente');
+  const [usuariosConPedidos, setUsuariosConPedidos] = useState<{ id: number; nombre: string; apellido?: string; email: string }[]>([]);
+  const [filtroUsuario, setFiltroUsuario] = useState<string>('all');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownEstadoOpen, setDropdownEstadoOpen] = useState(false);
+  const [textoBuscarEstado, setTextoBuscarEstado] = useState('');
+  const [dropdownOrdenOpen, setDropdownOrdenOpen] = useState(false);
+  const [textoBuscarOrden, setTextoBuscarOrden] = useState('');
+
+  const params = useLocalSearchParams<{ toastMessage?: string; toastType?: string }>();
+
+  const [showConfirmToggle, setShowConfirmToggle] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ pedido: Pedido; nuevoEstado: string } | null>(null);
 
   const { toast, showToast } = useToast();
+
+  const fetchUsuariosConPedidos = async () => {
+    try {
+      const res = await apiClient.get('/admin/pedidos/usuarios');
+      if (res.data?.success && res.data?.data?.usuarios) {
+        setUsuariosConPedidos(res.data.data.usuarios);
+      }
+    } catch (error) {
+      console.error('Error fetching users with orders:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsuariosConPedidos();
+  }, []);
 
   useEffect(() => {
     if (selected?.id) {
@@ -140,21 +169,19 @@ export default function AdminPedidoScreen() {
   }, [selected]);
 
   const fetchPedidos = async (
-    page = 1,
-    search = '',
     isRefresh = false,
     estFilter = filtroEstado,
-    sortVal = ordenarPor
+    sortVal = ordenarPor,
+    userFilter = filtroUsuario
   ) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setErrorMessage('');
     try {
       const params: string[] = [];
-      if (search.trim()) params.push(`buscar=${encodeURIComponent(search.trim())}`);
       if (estFilter !== 'all') params.push(`estado=${estFilter}`);
-      params.push(`pagina=${page}`);
-      params.push('limite=10');
+      if (userFilter !== 'all') params.push(`usuarioId=${userFilter}`);
+      params.push('limite=1000');
       const res = await apiClient.get(`/admin/pedidos?${params.join('&')}`);
       let data: Pedido[] = res.data?.data?.pedidos || [];
 
@@ -171,8 +198,6 @@ export default function AdminPedidoScreen() {
       }
 
       setPedidos(data);
-      setPagina(page);
-      setTotalPaginas(res.data?.data?.paginacion?.totalPaginas || 1);
     } catch (error: unknown) {
       setErrorMessage((error as { message?: string })?.message || 'No se pudo cargar pedidos');
     } finally {
@@ -181,15 +206,35 @@ export default function AdminPedidoScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchPedidos(1, busqueda);
-  }, [filtroEstado, ordenarPor]);
+  useFocusEffect(
+    useCallback(() => {
+      if (params.toastMessage) {
+        showToast(params.toastMessage, (params.toastType as any) || 'success');
+        router.setParams({ toastMessage: '', toastType: '' });
+      }
+      fetchPedidos(false, filtroEstado, ordenarPor, filtroUsuario);
+    }, [params.toastMessage, params.toastType, filtroEstado, ordenarPor, filtroUsuario])
+  );
 
-  const handleEstadoChange = async (pedido: Pedido, nuevoEstado: string) => {
+  useEffect(() => {
+    setPagina(1);
+    fetchPedidos(false, filtroEstado, ordenarPor, filtroUsuario);
+  }, [filtroEstado, ordenarPor, filtroUsuario]);
+
+  const handleEstadoChange = (pedido: Pedido, nuevoEstado: string) => {
+    setPendingStatusChange({ pedido, nuevoEstado });
+    setShowConfirmToggle(true);
+  };
+
+  const confirmEstadoChange = async () => {
+    if (!pendingStatusChange) return;
+    setShowConfirmToggle(false);
+    const { pedido, nuevoEstado } = pendingStatusChange;
+    setPendingStatusChange(null);
     try {
       await apiClient.put(`/admin/pedidos/${pedido.id}/estado`, { estado: nuevoEstado });
       showToast(`Pedido #${pedido.id} → ${nuevoEstado}`, 'success');
-      fetchPedidos(pagina, busqueda);
+      fetchPedidos();
       setSelected(null);
     } catch {
       showToast('No se pudo actualizar el estado', 'error');
@@ -197,6 +242,44 @@ export default function AdminPedidoScreen() {
   };
 
   const ESTADOS = ['pendiente', 'procesando', 'enviado', 'entregado', 'cancelado'];
+
+  const totalPaginas = Math.ceil(pedidos.length / 10) || 1;
+  const pedidosVisibles = pedidos.slice((pagina - 1) * 10, pagina * 10);
+
+  const ListFooter = () => {
+    if (loading || pedidos.length === 0 || totalPaginas <= 1) {
+      return <View style={{ height: 24 }} />;
+    }
+    return (
+      <View style={s.pagBarFooter}>
+        <Pressable
+          style={[s.pagCircleBtn, pagina <= 1 && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.max(1, p - 1))}
+          disabled={pagina <= 1}>
+          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+
+        <View style={s.pagDots}>
+          {Array.from({ length: totalPaginas }, (_, i) => (
+            <View
+              key={i}
+              style={[
+                s.pagDot,
+                i + 1 === pagina && s.pagDotActive
+              ]}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          style={[s.pagCircleBtn, pagina >= totalPaginas && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+          disabled={pagina >= totalPaginas}>
+          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+      </View>
+    );
+  };
 
   return (
     <View style={s.container}>
@@ -206,21 +289,14 @@ export default function AdminPedidoScreen() {
       </View>
 
       <View style={s.searchRow}>
-        <View style={s.inputWrap}>
-          <Ionicons name="search-outline" size={15} color="#b8a99a" />
-          <TextInput
-            placeholder="Buscar pedido..."
-            placeholderTextColor="#b8a99a"
-            value={busqueda}
-            onChangeText={(t) => { setBusqueda(t); fetchPedidos(1, t); }}
-            style={s.input}
-          />
-        </View>
         <Pressable
-          style={[s.filterToggleBtn, showFiltros && s.filterToggleBtnActive]}
+          style={[s.filterToggleBtn, showFiltros && s.filterToggleBtnActive, { flex: 1, flexDirection: 'row', gap: 8, height: 44, borderRadius: 14 }]}
           onPress={() => setShowFiltros(v => !v)}
         >
           <Ionicons name="filter-outline" size={18} color={showFiltros ? '#fff' : '#d4956a'} />
+          <ThemedText style={{ color: showFiltros ? '#fff' : '#d4956a', fontWeight: '700', fontSize: 14 }}>
+            {showFiltros ? 'Ocultar Filtros y Búsqueda' : 'Mostrar Filtros y Búsqueda'}
+          </ThemedText>
         </Pressable>
       </View>
 
@@ -230,58 +306,256 @@ export default function AdminPedidoScreen() {
           {/* Fila: Estado */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Estado del pedido</ThemedText>
-            <View style={s.pillRow}>
-              {([
-                { key: 'all', label: 'Todos' },
-                { key: 'pendiente', label: '⏳ Pendiente' },
-                { key: 'procesando', label: '⚙️ Procesando' },
-                { key: 'enviado', label: '🚚 Enviado' },
-                { key: 'entregado', label: '✅ Entregado' },
-                { key: 'cancelado', label: '❌ Cancelado' }
-              ]).map((est) => (
-                <Pressable
-                  key={est.key}
-                  style={[s.filterPill, filtroEstado === est.key && s.filterPillActive]}
-                  onPress={() => setFiltroEstado(est.key)}
-                >
-                  <ThemedText style={[s.filterPillText, filtroEstado === est.key && s.filterPillTextActive]}>
-                    {est.label}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="stats-chart-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar estado..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarEstado}
+                  onFocus={() => setDropdownEstadoOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarEstado(text);
+                    setDropdownEstadoOpen(true);
+                    setFiltroEstado('all');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarEstado.length > 0 || filtroEstado !== 'all' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarEstado('');
+                    setFiltroEstado('all');
+                    setDropdownEstadoOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownEstadoOpen(!dropdownEstadoOpen)}>
+                    <Ionicons name={dropdownEstadoOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+
+              {dropdownEstadoOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    <Pressable
+                      style={[s.dropdownItem, filtroEstado === 'all' && s.dropdownItemActive]}
+                      onPress={() => {
+                        setFiltroEstado('all');
+                        setTextoBuscarEstado('');
+                        setDropdownEstadoOpen(false);
+                      }}
+                    >
+                      <ThemedText style={[s.dropdownItemText, filtroEstado === 'all' && s.dropdownItemTextActive]}>
+                        📋 Todos los estados
+                      </ThemedText>
+                    </Pressable>
+
+                    {[
+                      { key: 'pendiente', label: '⏳ Pendiente' },
+                      { key: 'procesando', label: '⚙️ Procesando' },
+                      { key: 'enviado', label: '🚚 Enviado' },
+                      { key: 'entregado', label: '✅ Entregado' },
+                      { key: 'cancelado', label: '❌ Cancelado' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarEstado.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = filtroEstado === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setFiltroEstado(item.key);
+                              setTextoBuscarEstado(item.label);
+                              setDropdownEstadoOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
+
+          {/* Fila: Cliente (Solo con pedidos) */}
+          {usuariosConPedidos.length > 0 && (
+            <View style={s.filterGroup}>
+              <ThemedText style={s.filterLabel}>Filtrar por Cliente</ThemedText>
+              
+              <View style={s.dropdownContainer}>
+                {/* Buscador de usuario dentro del filtro */}
+                <View style={s.filterSearchBox}>
+                  <Ionicons name="person-outline" size={14} color="#d4956a" />
+                  <TextInput
+                    placeholder="Buscar y seleccionar cliente..."
+                    placeholderTextColor="#b8a99a"
+                    value={textoBuscarUsuario}
+                    onFocus={() => setDropdownOpen(true)}
+                    onChangeText={(text) => {
+                      setTextoBuscarUsuario(text);
+                      setDropdownOpen(true);
+                      // Si el usuario edita o borra el texto, reseteamos el ID seleccionado para buscar libremente
+                      setFiltroUsuario('all');
+                    }}
+                    style={s.filterSearchInput}
+                  />
+                  {textoBuscarUsuario.length > 0 || filtroUsuario !== 'all' ? (
+                    <Pressable onPress={() => {
+                      setTextoBuscarUsuario('');
+                      setFiltroUsuario('all');
+                      setDropdownOpen(false);
+                    }}>
+                      <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                    </Pressable>
+                  ) : (
+                    <Pressable onPress={() => setDropdownOpen(!dropdownOpen)}>
+                      <Ionicons name={dropdownOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Dropdown desplegable */}
+                {dropdownOpen && (
+                  <View style={s.dropdownList}>
+                    <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                      {/* Opción para seleccionar "Todos" */}
+                      <Pressable
+                        style={[s.dropdownItem, filtroUsuario === 'all' && s.dropdownItemActive]}
+                        onPress={() => {
+                          setFiltroUsuario('all');
+                          setTextoBuscarUsuario('');
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        <ThemedText style={[s.dropdownItemText, filtroUsuario === 'all' && s.dropdownItemTextActive]}>
+                          👤 Todos los clientes
+                        </ThemedText>
+                      </Pressable>
+
+                      {/* Clientes filtrados */}
+                      {usuariosConPedidos
+                        .filter((user) => {
+                          const fullName = `${user.nombre} ${user.apellido || ''} ${user.email}`.toLowerCase();
+                          return fullName.includes(textoBuscarUsuario.toLowerCase());
+                        })
+                        .map((user) => {
+                          const isSelected = filtroUsuario === String(user.id);
+                          return (
+                            <Pressable
+                              key={user.id}
+                              style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                              onPress={() => {
+                                setFiltroUsuario(String(user.id));
+                                setTextoBuscarUsuario(`${user.nombre} ${user.apellido || ''}`);
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              <View style={{ gap: 2 }}>
+                                <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                                  👤 {user.nombre} {user.apellido || ''}
+                                </ThemedText>
+                                <ThemedText style={{ fontSize: 11, color: '#9e8879' }}>
+                                  {user.email}
+                                </ThemedText>
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
 
           {/* Fila: Ordenamiento */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Ordenar por</ThemedText>
-            <View style={s.pillRow}>
-              {([
-                { key: 'reciente', label: 'Más nuevos' },
-                { key: 'antiguo', label: 'Más antiguos' },
-                { key: 'totalDesc', label: 'Total: Mayor a menor' },
-                { key: 'totalAsc', label: 'Total: Menor a mayor' }
-              ]).map((ord) => (
-                <Pressable
-                  key={ord.key}
-                  style={[s.filterPill, ordenarPor === ord.key && s.filterPillActive]}
-                  onPress={() => setOrdenarPor(ord.key as any)}
-                >
-                  <ThemedText style={[s.filterPillText, ordenarPor === ord.key && s.filterPillTextActive]}>
-                    {ord.label}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="swap-vertical-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar orden..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarOrden}
+                  onFocus={() => setDropdownOrdenOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarOrden(text);
+                    setDropdownOrdenOpen(true);
+                    setOrdenarPor('reciente');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarOrden.length > 0 || ordenarPor !== 'reciente' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarOrden('');
+                    setOrdenarPor('reciente');
+                    setDropdownOrdenOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownOrdenOpen(!dropdownOrdenOpen)}>
+                    <Ionicons name={dropdownOrdenOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+
+              {dropdownOrdenOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {([
+                      { key: 'reciente', label: '🕓 Más nuevos' },
+                      { key: 'antiguo', label: '📅 Más antiguos' },
+                      { key: 'totalDesc', label: '💰 Total: Mayor a menor' },
+                      { key: 'totalAsc', label: '🪙 Total: Menor a mayor' }
+                    ])
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarOrden.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = ordenarPor === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setOrdenarPor(item.key as any);
+                              setTextoBuscarOrden(item.label);
+                              setDropdownOrdenOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Botón limpiar */}
-          {(filtroEstado !== 'all' || ordenarPor !== 'reciente') && (
+          {(filtroEstado !== 'all' || ordenarPor !== 'reciente' || filtroUsuario !== 'all' || textoBuscarUsuario !== '' || textoBuscarEstado !== '' || textoBuscarOrden !== '') && (
             <Pressable
               style={s.clearFiltersBtn}
               onPress={() => {
                 setFiltroEstado('all');
                 setOrdenarPor('reciente');
+                setFiltroUsuario('all');
+                setTextoBuscarUsuario('');
+                setTextoBuscarEstado('');
+                setTextoBuscarOrden('');
+                setDropdownOpen(false);
+                setDropdownEstadoOpen(false);
+                setDropdownOrdenOpen(false);
               }}
             >
               <Ionicons name="trash-outline" size={14} color="#c0392b" />
@@ -295,12 +569,12 @@ export default function AdminPedidoScreen() {
       {!!errorMessage && <ThemedText style={s.error}>{errorMessage}</ThemedText>}
 
       <FlatList
-        data={pedidos}
+        data={pedidosVisibles}
         keyExtractor={(item) => String(item.id)}
         style={s.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchPedidos(1, busqueda, true)} colors={['#d4956a']} tintColor="#d4956a" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setPagina(1); fetchPedidos(true); }} colors={['#d4956a']} tintColor="#d4956a" />
         }
         renderItem={({ item }) => {
           const est = getEstado(item.estado);
@@ -312,7 +586,7 @@ export default function AdminPedidoScreen() {
               <View style={s.cardBody}>
                 <ThemedText style={s.cardId}>Pedido #{String(item.id).slice(-8)}</ThemedText>
                 <ThemedText style={s.cardCliente} numberOfLines={1}>
-                  {item.usuario?.nombre} {item.usuario?.apellido}
+                  Cliente: {item.usuario?.nombre ? `${item.usuario.nombre} ${item.usuario.apellido || ''}` : 'Usuario desconocido'}
                 </ThemedText>
                 <View style={s.row}>
                   <View style={[s.pill, { backgroundColor: est.bg }]}>
@@ -331,18 +605,8 @@ export default function AdminPedidoScreen() {
             <ThemedText style={s.emptyText}>No hay pedidos aún</ThemedText>
           </View>
         ) : null}
+        ListFooterComponent={<ListFooter />}
       />
-
-      {/* Paginación */}
-      <View style={s.pagination}>
-        <Pressable style={[s.pageBtn, pagina <= 1 && s.pageBtnOff]} onPress={() => pagina > 1 && fetchPedidos(pagina - 1, busqueda)} disabled={pagina <= 1}>
-          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#7c5c45'} />
-        </Pressable>
-        <ThemedText style={s.pageLabel}>Página {pagina} de {totalPaginas}</ThemedText>
-        <Pressable style={[s.pageBtn, pagina >= totalPaginas && s.pageBtnOff]} onPress={() => pagina < totalPaginas && fetchPedidos(pagina + 1, busqueda)} disabled={pagina >= totalPaginas}>
-          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#7c5c45'} />
-        </Pressable>
-      </View>
 
       {/* Modal detalle */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
@@ -582,6 +846,19 @@ export default function AdminPedidoScreen() {
       </Modal>
 
       <AdminToast message={toast.message} type={toast.type} visible={toast.visible} />
+      <ConfirmModal
+        visible={showConfirmToggle}
+        title="Cambiar Estado del Pedido"
+        message={`¿Estás seguro de que deseas cambiar el estado del pedido #${pendingStatusChange?.pedido?.id} a "${pendingStatusChange?.nuevoEstado}"?`}
+        icon="construct-outline"
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        onConfirm={confirmEstadoChange}
+        onCancel={() => {
+          setShowConfirmToggle(false);
+          setPendingStatusChange(null);
+        }}
+      />
     </View>
   );
 }
@@ -592,7 +869,7 @@ const s = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800', color: '#3d2c1e' },
   subtitle: { fontSize: 13, color: '#9e8879' },
 
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff9f5', borderRadius: 14, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 12, height: 44, gap: 8 },
+  inputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff9f5', borderRadius: 14, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 12, height: 44, gap: 8 },
   input: { flex: 1, fontSize: 14, color: '#3d2c1e' },
 
   centered: { alignItems: 'center', paddingVertical: 24 },
@@ -614,10 +891,50 @@ const s = StyleSheet.create({
   emptyIcon: { fontSize: 40 },
   emptyText: { fontSize: 15, color: '#b8a99a' },
 
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 6 },
-  pageBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff9f5', borderWidth: 1, borderColor: '#e8ddd5', alignItems: 'center', justifyContent: 'center' },
-  pageBtnOff: { opacity: 0.4 },
-  pageLabel: { fontSize: 13, fontWeight: '600', color: '#7c6455' },
+  // Paginación minimalista en footer
+  pagBarFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  pagCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  pagCircleBtnOff: {
+    backgroundColor: '#f5f0ec',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pagDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e8ddd5',
+  },
+  pagDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#d4956a',
+  },
 
   overlay: { flex: 1, backgroundColor: 'rgba(61,44,30,0.35)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: 26, borderTopRightRadius: 26, maxHeight: '88%', paddingBottom: 16 },
@@ -701,4 +1018,12 @@ const s = StyleSheet.create({
   filterPillTextActive: { color: '#d4956a', fontWeight: '700' },
   clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0ede8', marginTop: 4 },
   clearFiltersText: { fontSize: 12, fontWeight: '700', color: '#c0392b' },
+  filterSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf8f4', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 10, height: 38, gap: 6, marginBottom: 4 },
+  filterSearchInput: { flex: 1, fontSize: 13, color: '#3d2c1e', padding: 0 },
+  dropdownContainer: { position: 'relative', zIndex: 10, width: '100%' },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', marginTop: 4, shadowColor: '#c4a882', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4, overflow: 'hidden' },
+  dropdownItem: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fdf8f4' },
+  dropdownItemActive: { backgroundColor: '#fff3e6' },
+  dropdownItemText: { fontSize: 13, color: '#3d2c1e', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
 });

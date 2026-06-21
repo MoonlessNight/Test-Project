@@ -21,6 +21,7 @@ import apiClient from '../../src/api/apiClient';
 import { createProduct, updateProduct } from '../../src/services/adminService';
 import { API_ORIGIN_URL } from '../../src/utils/constants';
 import { ThemedText } from '../../components/themed-text';
+import ConfirmModal from '../../components/confirm-modal';
 
 type Producto = {
   id?: string;
@@ -69,6 +70,12 @@ export default function AdminProductoForm() {
   const [subcategorias, setSubcategorias] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+
+  const [dropdownCatOpen, setDropdownCatOpen] = useState(false);
+  const [textoBuscarCategoria, setTextoBuscarCategoria] = useState('');
+  const [dropdownSubOpen, setDropdownSubOpen] = useState(false);
+  const [textoBuscarSubcategoria, setTextoBuscarSubcategoria] = useState('');
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -115,8 +122,26 @@ export default function AdminProductoForm() {
           apiClient.get('/admin/subcategorias'),
         ]);
 
-        setCategorias(categoriaRes.data?.data?.categorias || []);
-        setSubcategorias(subcategoriaRes.data?.data?.subcategorias || []);
+        const cats: Option[] = categoriaRes.data?.data?.categorias || [];
+        const subs: Option[] = subcategoriaRes.data?.data?.subcategorias || [];
+        setCategorias(cats);
+        setSubcategorias(subs);
+
+        const currentCatId = producto?.categoriaId?.toString?.() ?? producto?.categoria?.id?.toString?.() ?? categoriaId;
+        const currentSubId = producto?.subcategoriaId?.toString?.() ?? producto?.subcategoria?.id?.toString?.() ?? subcategoriaId;
+
+        if (currentCatId) {
+          const foundCat = cats.find(c => String(c.id) === String(currentCatId));
+          if (foundCat) {
+            setTextoBuscarCategoria(foundCat.nombre || '');
+          }
+        }
+        if (currentSubId) {
+          const foundSub = subs.find(s => String(s.id) === String(currentSubId));
+          if (foundSub) {
+            setTextoBuscarSubcategoria(foundSub.nombre || '');
+          }
+        }
       } catch (error) {
         console.warn('No se pudieron cargar categorías o subcategorías', error);
       }
@@ -128,15 +153,20 @@ export default function AdminProductoForm() {
   useEffect(() => {
     if (!categoriaId) {
       setSubcategoriaId('');
+      setTextoBuscarSubcategoria('');
     }
   }, [categoriaId]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!nombre.trim() || !descripcion.trim() || !precio.trim() || !stock.trim() || !categoriaId || !subcategoriaId) {
       Alert.alert('Error', 'Todos los campos obligatorios deben completarse');
       return;
     }
+    setShowConfirmSubmit(true);
+  };
 
+  const confirmSubmit = async () => {
+    setShowConfirmSubmit(false);
     setLoading(true);
     try {
       const formData = new FormData();
@@ -164,13 +194,17 @@ export default function AdminProductoForm() {
 
       if (editing && producto) {
         await updateProduct(String(producto.id), formData);
-        Alert.alert('Exitoso', 'Producto actualizado');
+        router.replace({
+          pathname: '/admin/productos',
+          params: { toastMessage: 'Producto actualizado exitosamente', toastType: 'success' }
+        });
       } else {
         await createProduct(formData);
-        Alert.alert('Exitoso', 'Producto creado');
+        router.replace({
+          pathname: '/admin/productos',
+          params: { toastMessage: 'Producto creado exitosamente', toastType: 'success' }
+        });
       }
-
-      router.back();
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo guardar el producto');
     } finally {
@@ -179,12 +213,10 @@ export default function AdminProductoForm() {
   };
 
   return (
-    <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
+    <>
+      <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       {/* Encabezado */}
       <View style={s.header}>
-        <Pressable style={s.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#7c6455" />
-        </Pressable>
         <View style={s.headerText}>
           <ThemedText style={s.title}>{editing ? 'Editar Producto' : 'Nuevo Producto'}</ThemedText>
           <ThemedText style={s.subtitle}>
@@ -254,23 +286,64 @@ export default function AdminProductoForm() {
       {/* Campo: Categoría */}
       <ThemedText style={s.label}>Categoría *</ThemedText>
       {categorias.length ? (
-        <View style={s.tagGrid}>
-          {categorias.map((cat) => {
-            const isSel = categoriaId === String(cat.id);
-            return (
-              <Pressable
-                key={String(cat.id)}
-                style={[s.tagBtn, isSel && s.tagBtnSel]}
-                onPress={() => setCategoriaId(String(cat.id))}
-                disabled={loading}
-              >
-                <ThemedText style={[s.tagBtnText, isSel && s.tagBtnTextSel]}>
-                  {cat.nombre}
-                </ThemedText>
-                {isSel && <Ionicons name="checkmark-circle" size={14} color="#d4956a" />}
+        <View style={s.dropdownContainer}>
+          <View style={s.filterSearchBox}>
+            <Ionicons name="folder-open-outline" size={16} color="#d4956a" style={{ marginLeft: 4 }} />
+            <TextInput
+              placeholder="Buscar y seleccionar categoría..."
+              placeholderTextColor="#9ca3af"
+              value={textoBuscarCategoria}
+              onFocus={() => setDropdownCatOpen(true)}
+              onChangeText={(text) => {
+                setTextoBuscarCategoria(text);
+                setDropdownCatOpen(true);
+                if (text === '') {
+                  setCategoriaId('');
+                }
+              }}
+              style={s.filterSearchInput}
+            />
+            {textoBuscarCategoria.length > 0 || categoriaId !== '' ? (
+              <Pressable onPress={() => {
+                setTextoBuscarCategoria('');
+                setCategoriaId('');
+                setDropdownCatOpen(false);
+              }}>
+                <Ionicons name="close-circle" size={16} color="#9e8879" />
               </Pressable>
-            );
-          })}
+            ) : (
+              <Pressable onPress={() => setDropdownCatOpen(!dropdownCatOpen)}>
+                <Ionicons name={dropdownCatOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#9e8879" />
+              </Pressable>
+            )}
+          </View>
+
+          {dropdownCatOpen && (
+            <View style={s.dropdownList}>
+              <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                {categorias
+                  .filter((cat) => (cat.nombre || '').toLowerCase().includes(textoBuscarCategoria.toLowerCase()))
+                  .map((cat) => {
+                    const isSelected = String(categoriaId) === String(cat.id);
+                    return (
+                      <Pressable
+                        key={String(cat.id)}
+                        style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                        onPress={() => {
+                          setCategoriaId(String(cat.id));
+                          setTextoBuscarCategoria(cat.nombre || '');
+                          setDropdownCatOpen(false);
+                        }}
+                      >
+                        <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                          📁 {cat.nombre}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+              </ScrollView>
+            </View>
+          )}
         </View>
       ) : (
         <ThemedText style={s.helperText}>Cargando categorías...</ThemedText>
@@ -279,27 +352,63 @@ export default function AdminProductoForm() {
       {/* Campo: Subcategoría */}
       <ThemedText style={s.label}>Subcategoría *</ThemedText>
       {categoriaId ? (
-        <View style={s.tagGrid}>
-          {subcategorias
-            .filter((sub) => String(sub.categoriaId) === String(categoriaId))
-            .map((sub) => {
-              const isSel = subcategoriaId === String(sub.id);
-              return (
-                <Pressable
-                  key={String(sub.id)}
-                  style={[s.tagBtn, isSel && s.tagBtnSel]}
-                  onPress={() => setSubcategoriaId(String(sub.id))}
-                  disabled={loading}
-                >
-                  <ThemedText style={[s.tagBtnText, isSel && s.tagBtnTextSel]}>
-                    {sub.nombre}
-                  </ThemedText>
-                  {isSel && <Ionicons name="checkmark-circle" size={14} color="#d4956a" />}
-                </Pressable>
-              );
-            })}
-          {subcategorias.filter((sub) => String(sub.categoriaId) === String(categoriaId)).length === 0 && (
-            <ThemedText style={s.helperText}>No hay subcategorías activas para esta categoría.</ThemedText>
+        <View style={s.dropdownContainer}>
+          <View style={s.filterSearchBox}>
+            <Ionicons name="pricetag-outline" size={16} color="#d4956a" style={{ marginLeft: 4 }} />
+            <TextInput
+              placeholder="Buscar y seleccionar subcategoría..."
+              placeholderTextColor="#9ca3af"
+              value={textoBuscarSubcategoria}
+              onFocus={() => setDropdownSubOpen(true)}
+              onChangeText={(text) => {
+                setTextoBuscarSubcategoria(text);
+                setDropdownSubOpen(true);
+                if (text === '') {
+                  setSubcategoriaId('');
+                }
+              }}
+              style={s.filterSearchInput}
+            />
+            {textoBuscarSubcategoria.length > 0 || subcategoriaId !== '' ? (
+              <Pressable onPress={() => {
+                setTextoBuscarSubcategoria('');
+                setSubcategoriaId('');
+                setDropdownSubOpen(false);
+              }}>
+                <Ionicons name="close-circle" size={16} color="#9e8879" />
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => setDropdownSubOpen(!dropdownSubOpen)}>
+                <Ionicons name={dropdownSubOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#9e8879" />
+              </Pressable>
+            )}
+          </View>
+
+          {dropdownSubOpen && (
+            <View style={s.dropdownList}>
+              <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                {subcategorias
+                  .filter((sub) => String(sub.categoriaId) === String(categoriaId) && (sub.nombre || '').toLowerCase().includes(textoBuscarSubcategoria.toLowerCase()))
+                  .map((sub) => {
+                    const isSelected = String(subcategoriaId) === String(sub.id);
+                    return (
+                      <Pressable
+                        key={String(sub.id)}
+                        style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                        onPress={() => {
+                          setSubcategoriaId(String(sub.id));
+                          setTextoBuscarSubcategoria(sub.nombre || '');
+                          setDropdownSubOpen(false);
+                        }}
+                      >
+                        <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                          🏷️ {sub.nombre}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+              </ScrollView>
+            </View>
           )}
         </View>
       ) : (
@@ -369,17 +478,27 @@ export default function AdminProductoForm() {
           )}
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+      <ConfirmModal
+        visible={showConfirmSubmit}
+        title={editing ? 'Guardar Cambios' : 'Crear Producto'}
+        message={editing ? '¿Estás seguro de que deseas guardar los cambios realizados?' : '¿Estás seguro de que deseas crear este nuevo producto?'}
+        icon={editing ? 'save-outline' : 'add-circle-outline'}
+        confirmText={editing ? 'Guardar' : 'Crear'}
+        cancelText="Cancelar"
+        onConfirm={confirmSubmit}
+        onCancel={() => setShowConfirmSubmit(false)}
+      />
+    </>
   );
 }
 
 const s = StyleSheet.create({
   container: { padding: 20, backgroundColor: '#fdf8f4', flexGrow: 1, gap: 4, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e8ddd5' },
-  headerText: { flex: 1 },
-  title: { fontSize: 20, fontWeight: '800', color: '#3d2c1e' },
-  subtitle: { fontSize: 12, color: '#9e8879' },
+  header: { alignItems: 'center', marginBottom: 16, width: '100%' },
+  headerText: { alignItems: 'center', width: '100%' },
+  title: { fontSize: 20, fontWeight: '800', color: '#3d2c1e', textAlign: 'center' },
+  subtitle: { fontSize: 12, color: '#9e8879', textAlign: 'center' },
   iconWrap: { alignSelf: 'center', marginBottom: 8 },
   icon: { fontSize: 48 },
   label: { fontSize: 13, fontWeight: '700', color: '#7c6455', marginTop: 12, marginBottom: 6 },
@@ -430,4 +549,14 @@ const s = StyleSheet.create({
   saveBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: '#d4956a' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  // Dropdown styles
+  dropdownContainer: { position: 'relative', zIndex: 10, width: '100%', marginBottom: 8 },
+  filterSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 14, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 12, height: 48, gap: 8 },
+  filterSearchInput: { flex: 1, fontSize: 15, color: '#3d2c1e', padding: 0 },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#e8ddd5', marginTop: 4, shadowColor: '#c4a882', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4, overflow: 'hidden' },
+  dropdownItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#fdf8f4' },
+  dropdownItemActive: { backgroundColor: '#fff3e6' },
+  dropdownItemText: { fontSize: 14, color: '#3d2c1e', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
 });

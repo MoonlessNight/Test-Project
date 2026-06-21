@@ -53,9 +53,9 @@ const authService = {
         const response = await apiClient.put('/auth/me', data);
         const usuario = response.data?.data?.usuario || response.data.usuario || null;
         if (usuario) {
-            await storageSetItem(STORAGE_KEYS.user, JSON.stringify(usuario));
+            await storageSetItem(STORAGE_KEYS.user, usuario);
         }
-        return response.data;
+        return usuario;
     },
 
 };

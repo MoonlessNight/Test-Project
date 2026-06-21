@@ -280,9 +280,9 @@ const getMe = async (req, res) => {
  */
 const updateMe = async (req, res) => {
   try {
-    // Solo extrae los campos que el usuario tiene PERMITIDO cambiar.
-    // No extrae 'rol' ni 'activo' por seguridad.
-    const { nombre, apellido, telefono, direccion } = req.body;
+    // Extrae los campos permitidos, incluyendo email y password.
+    // No permite cambiar 'rol' ni 'activo' por seguridad.
+    const { nombre, apellido, email, telefono, direccion, password } = req.body;
     
     // Busca el usuario en la BD por su ID (viene del token via middleware)
     const usuario = await Usuario.findByPk(req.usuario.id);
@@ -294,21 +294,46 @@ const updateMe = async (req, res) => {
       });
     }
     
+    // VALIDACIÓN DE EMAIL: si el email cambia, verifica que no esté registrado por otro usuario.
+    if (email !== undefined && email !== usuario.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Formato de email inválido'
+        });
+      }
+      const emailExistente = await Usuario.findOne({ where: { email } });
+      if (emailExistente) {
+        return res.status(400).json({
+          success: false,
+          message: 'El email ya está registrado por otro usuario'
+        });
+      }
+      usuario.email = email;
+    }
+
+    // VALIDACIÓN DE CONTRASEÑA: si viene password, verifica longitud y asígnale al usuario.
+    if (password !== undefined && password.trim().length > 0) {
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'La contraseña debe tener al menos 6 caracteres'
+        });
+      }
+      usuario.password = password; // Se encriptará automáticamente por el hook beforeUpdate
+    }
+    
     // ACTUALIZAR CAMPOS: solo actualiza si el campo viene definido en el body.
-    // La condición !== undefined permite enviar valores vacíos o null intencionalmente.
-    // Si el campo no viene en el body, no lo modifica (mantiene el valor actual).
     if (nombre !== undefined) usuario.nombre = nombre;
     if (apellido !== undefined) usuario.apellido = apellido;
     if (telefono !== undefined) usuario.telefono = telefono;
     if (direccion !== undefined) usuario.direccion = direccion;
     
     // .save() persiste los cambios en la base de datos.
-    // Sequelize genera un UPDATE SQL solo con los campos que cambiaron.
     await usuario.save();
     
     // Responde con los datos actualizados.
-    // toJSON() convierte el objeto Sequelize a un objeto plano
-    // y el modelo excluye automáticamente el password en toJSON().
     res.json({
       success: true,
       message: 'Perfil actualizado exitosamente',

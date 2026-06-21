@@ -341,7 +341,9 @@ process.on('unhandledRejection', (err) => {
 // ==========================================
 // Llama a la función startServer() para comenzar todo el proceso de arranque
 // Esta es la línea que realmente "enciende" el servidor al ejecutar: node server.js
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 // Exporta la app de Express para poder usarla en los tests (jest + supertest)
 // En los tests se hace: const request = require('supertest')(app) sin necesidad de app.listen()

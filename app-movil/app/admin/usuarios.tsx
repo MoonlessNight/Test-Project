@@ -17,8 +17,11 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '../../components/themed-text';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import ConfirmModal from '../../components/confirm-modal';
 import AdminToast from '../../components/admin-toast';
 import apiClient from '../../src/api/apiClient';
 import { activarUsuario, desactivarUsuario } from '../../src/services/usuarioAdminService';
@@ -65,25 +68,34 @@ export default function AdminUsuariosScreen() {
   const { user } = useAuth() as { user: AuthUser | null };
   const isAdmin = user?.rol === 'administrador';
 
+  const params = useLocalSearchParams<{ toastMessage?: string; toastType?: string }>();
+
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
   const [selected, setSelected] = useState<Usuario | null>(null);
 
   // Filtros adicionales
   const [showFiltros, setShowFiltros] = useState(false);
   const [filtroActivo, setFiltroActivo] = useState<'all' | 'true' | 'false'>('all');
+  const [dropdownActivoOpen, setDropdownActivoOpen] = useState(false);
+  const [textoBuscarActivo, setTextoBuscarActivo] = useState('');
   const [filtroRol, setFiltroRol] = useState<string>('');
+  const [dropdownRolOpen, setDropdownRolOpen] = useState(false);
+  const [textoBuscarRol, setTextoBuscarRol] = useState('');
   const [ordenarPor, setOrdenarPor] = useState<'nombre' | 'reciente' | 'antiguo'>('reciente');
+  const [dropdownOrdenOpen, setDropdownOrdenOpen] = useState(false);
+  const [textoBuscarOrden, setTextoBuscarOrden] = useState('');
+
+  const [showConfirmToggle, setShowConfirmToggle] = useState(false);
+  const [toggleUser, setToggleUser] = useState<Usuario | null>(null);
 
   const { toast, showToast } = useToast();
 
   const fetchUsuarios = async (
-    page = 1,
     search = '',
     isRefresh = false,
     activeFilter = filtroActivo,
@@ -98,8 +110,7 @@ export default function AdminUsuariosScreen() {
       if (search.trim()) params.push(`buscar=${encodeURIComponent(search.trim())}`);
       if (activeFilter !== 'all') params.push(`activo=${activeFilter}`);
       if (rolFilter) params.push(`rol=${rolFilter}`);
-      params.push(`page=${page}`);
-      params.push('limite=10');
+      params.push('limite=1000');
       const res = await apiClient.get(`/admin/usuarios?${params.join('&')}`);
       let data: Usuario[] = res.data?.data?.usuarios || [];
 
@@ -114,8 +125,6 @@ export default function AdminUsuariosScreen() {
       }
 
       setUsuarios(data);
-      setPagina(page);
-      setTotalPaginas(res.data?.data?.paginacion?.totalPaginas || 1);
     } catch (error: unknown) {
       setErrorMessage((error as { message?: string })?.message || 'No se pudo cargar usuarios');
     } finally {
@@ -124,11 +133,31 @@ export default function AdminUsuariosScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (params.toastMessage) {
+        showToast(params.toastMessage, (params.toastType as any) || 'success');
+        router.setParams({ toastMessage: '', toastType: '' });
+      }
+      fetchUsuarios(busqueda);
+    }, [params.toastMessage, params.toastType])
+  );
+
   useEffect(() => {
-    fetchUsuarios(1, busqueda);
+    setPagina(1);
+    fetchUsuarios(busqueda);
   }, [filtroActivo, filtroRol, ordenarPor]);
 
-  const handleToggle = async (item: Usuario) => {
+  const handleToggle = (item: Usuario) => {
+    setToggleUser(item);
+    setShowConfirmToggle(true);
+  };
+
+  const confirmToggle = async () => {
+    if (!toggleUser) return;
+    setShowConfirmToggle(false);
+    const item = toggleUser;
+    setToggleUser(null);
     try {
       if (item.activo) {
         await desactivarUsuario(item.id);
@@ -137,10 +166,48 @@ export default function AdminUsuariosScreen() {
         await activarUsuario(item.id);
         showToast(`${item.nombre} activado`, 'success');
       }
-      fetchUsuarios(pagina, busqueda);
+      fetchUsuarios(busqueda);
     } catch {
       showToast('No se pudo cambiar el estado', 'error');
     }
+  };
+
+  const totalPaginas = Math.ceil(usuarios.length / 10) || 1;
+  const usuariosVisibles = usuarios.slice((pagina - 1) * 10, pagina * 10);
+
+  const ListFooter = () => {
+    if (loading || usuarios.length === 0 || totalPaginas <= 1) {
+      return <View style={{ height: 24 }} />;
+    }
+    return (
+      <View style={s.pagBarFooter}>
+        <Pressable
+          style={[s.pagCircleBtn, pagina <= 1 && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.max(1, p - 1))}
+          disabled={pagina <= 1}>
+          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+
+        <View style={s.pagDots}>
+          {Array.from({ length: totalPaginas }, (_, i) => (
+            <View
+              key={i}
+              style={[
+                s.pagDot,
+                i + 1 === pagina && s.pagDotActive
+              ]}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          style={[s.pagCircleBtn, pagina >= totalPaginas && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+          disabled={pagina >= totalPaginas}>
+          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+      </View>
+    );
   };
 
   return (
@@ -157,7 +224,7 @@ export default function AdminUsuariosScreen() {
             placeholder="Buscar usuario..."
             placeholderTextColor="#b8a99a"
             value={busqueda}
-            onChangeText={(t) => { setBusqueda(t); fetchUsuarios(1, t); }}
+            onChangeText={(t) => { setBusqueda(t); setPagina(1); fetchUsuarios(t); }}
             style={s.input}
           />
         </View>
@@ -179,70 +246,226 @@ export default function AdminUsuariosScreen() {
           {/* Fila: Estado */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Estado</ThemedText>
-            <View style={s.pillRow}>
-              {(['all', 'true', 'false'] as const).map((st) => (
-                <Pressable
-                  key={st}
-                  style={[s.filterPill, filtroActivo === st && s.filterPillActive]}
-                  onPress={() => setFiltroActivo(st)}
-                >
-                  <ThemedText style={[s.filterPillText, filtroActivo === st && s.filterPillTextActive]}>
-                    {st === 'all' ? 'Todos' : st === 'true' ? 'Activos' : 'Inactivos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="toggle-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar estado..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarActivo}
+                  onFocus={() => setDropdownActivoOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarActivo(text);
+                    setDropdownActivoOpen(true);
+                    setFiltroActivo('all');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarActivo.length > 0 || filtroActivo !== 'all' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarActivo('');
+                    setFiltroActivo('all');
+                    setDropdownActivoOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownActivoOpen(!dropdownActivoOpen)}>
+                    <Ionicons name={dropdownActivoOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownActivoOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'all', label: '📋 Todos' },
+                      { key: 'true', label: '🟢 Activos' },
+                      { key: 'false', label: '🔴 Inactivos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarActivo.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = filtroActivo === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setFiltroActivo(item.key as any);
+                              setTextoBuscarActivo(item.label);
+                              setDropdownActivoOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Fila: Rol */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Rol</ThemedText>
-            <View style={s.pillRow}>
-              {([
-                { key: '', label: 'Todos' },
-                { key: 'administrador', label: '👑 Admin' },
-                { key: 'auxiliar', label: '🛠️ Auxiliar' },
-                { key: 'cliente', label: '🙂 Cliente' }
-              ]).map((role) => (
-                <Pressable
-                  key={role.key}
-                  style={[s.filterPill, filtroRol === role.key && s.filterPillActive]}
-                  onPress={() => setFiltroRol(role.key)}
-                >
-                  <ThemedText style={[s.filterPillText, filtroRol === role.key && s.filterPillTextActive]}>
-                    {role.label}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar rol..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarRol}
+                  onFocus={() => setDropdownRolOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarRol(text);
+                    setDropdownRolOpen(true);
+                    setFiltroRol('');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarRol.length > 0 || filtroRol !== '' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarRol('');
+                    setFiltroRol('');
+                    setDropdownRolOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownRolOpen(!dropdownRolOpen)}>
+                    <Ionicons name={dropdownRolOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+
+              {dropdownRolOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    <Pressable
+                      style={[s.dropdownItem, !filtroRol && s.dropdownItemActive]}
+                      onPress={() => {
+                        setFiltroRol('');
+                        setTextoBuscarRol('');
+                        setDropdownRolOpen(false);
+                      }}
+                    >
+                      <ThemedText style={[s.dropdownItemText, !filtroRol && s.dropdownItemTextActive]}>
+                        👥 Todos los roles
+                      </ThemedText>
+                    </Pressable>
+
+                    {[
+                      { key: 'administrador', label: '👑 Administrador' },
+                      { key: 'auxiliar', label: '🛠️ Auxiliar' },
+                      { key: 'cliente', label: '🙂 Cliente' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarRol.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = filtroRol === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setFiltroRol(item.key);
+                              setTextoBuscarRol(item.label);
+                              setDropdownRolOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Fila: Ordenamiento */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Ordenar por</ThemedText>
-            <View style={s.pillRow}>
-              {(['nombre', 'reciente', 'antiguo'] as const).map((ord) => (
-                <Pressable
-                  key={ord}
-                  style={[s.filterPill, ordenarPor === ord && s.filterPillActive]}
-                  onPress={() => setOrdenarPor(ord)}
-                >
-                  <ThemedText style={[s.filterPillText, ordenarPor === ord && s.filterPillTextActive]}>
-                    {ord === 'nombre' ? 'Nombre A-Z' : ord === 'reciente' ? 'Más nuevos' : 'Más antiguos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="swap-vertical-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar orden..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarOrden}
+                  onFocus={() => setDropdownOrdenOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarOrden(text);
+                    setDropdownOrdenOpen(true);
+                    setOrdenarPor('reciente');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarOrden.length > 0 || ordenarPor !== 'reciente' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarOrden('');
+                    setOrdenarPor('reciente');
+                    setDropdownOrdenOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownOrdenOpen(!dropdownOrdenOpen)}>
+                    <Ionicons name={dropdownOrdenOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownOrdenOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'nombre', label: '🔤 Nombre A-Z' },
+                      { key: 'reciente', label: '🕓 Más nuevos' },
+                      { key: 'antiguo', label: '📅 Más antiguos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarOrden.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = ordenarPor === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setOrdenarPor(item.key as any);
+                              setTextoBuscarOrden(item.label);
+                              setDropdownOrdenOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Botón limpiar */}
-          {(filtroRol !== '' || filtroActivo !== 'all' || ordenarPor !== 'reciente') && (
+          {(filtroRol !== '' || filtroActivo !== 'all' || ordenarPor !== 'reciente' || textoBuscarRol !== '' || textoBuscarActivo !== '' || textoBuscarOrden !== '') && (
             <Pressable
               style={s.clearFiltersBtn}
               onPress={() => {
                 setFiltroRol('');
                 setFiltroActivo('all');
                 setOrdenarPor('reciente');
+                setTextoBuscarRol('');
+                setTextoBuscarActivo('');
+                setTextoBuscarOrden('');
+                setDropdownRolOpen(false);
+                setDropdownActivoOpen(false);
+                setDropdownOrdenOpen(false);
               }}
             >
               <Ionicons name="trash-outline" size={14} color="#c0392b" />
@@ -256,12 +479,12 @@ export default function AdminUsuariosScreen() {
       {!!errorMessage && <ThemedText style={s.error}>{errorMessage}</ThemedText>}
 
       <FlatList
-        data={usuarios}
+        data={usuariosVisibles}
         keyExtractor={(item) => String(item.id)}
         style={s.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchUsuarios(1, busqueda, true)} colors={['#d4956a']} tintColor="#d4956a" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setPagina(1); fetchUsuarios(busqueda, true); }} colors={['#d4956a']} tintColor="#d4956a" />
         }
         renderItem={({ item }) => {
           const rolStyle = getRol(item.rol);
@@ -310,18 +533,8 @@ export default function AdminUsuariosScreen() {
             <ThemedText style={s.emptyText}>No hay usuarios aún</ThemedText>
           </View>
         ) : null}
+        ListFooterComponent={<ListFooter />}
       />
-
-      {/* Paginación */}
-      <View style={s.pagination}>
-        <Pressable style={[s.pageBtn, pagina <= 1 && s.pageBtnOff]} onPress={() => pagina > 1 && fetchUsuarios(pagina - 1, busqueda)} disabled={pagina <= 1}>
-          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#7c5c45'} />
-        </Pressable>
-        <ThemedText style={s.pageLabel}>Página {pagina} de {totalPaginas}</ThemedText>
-        <Pressable style={[s.pageBtn, pagina >= totalPaginas && s.pageBtnOff]} onPress={() => pagina < totalPaginas && fetchUsuarios(pagina + 1, busqueda)} disabled={pagina >= totalPaginas}>
-          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#7c5c45'} />
-        </Pressable>
-      </View>
 
       {/* Modal detalle */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
@@ -398,6 +611,20 @@ export default function AdminUsuariosScreen() {
       </Modal>
 
       <AdminToast message={toast.message} type={toast.type} visible={toast.visible} />
+      <ConfirmModal
+        visible={showConfirmToggle}
+        title={toggleUser?.activo ? 'Desactivar Usuario' : 'Activar Usuario'}
+        message={`¿Estás seguro de que deseas ${toggleUser?.activo ? 'desactivar' : 'activar'} la cuenta de ${toggleUser?.nombre} ${toggleUser?.apellido}?`}
+        icon={toggleUser?.activo ? 'eye-off-outline' : 'eye-outline'}
+        confirmText={toggleUser?.activo ? 'Desactivar' : 'Activar'}
+        cancelText="Cancelar"
+        isDestructive={toggleUser?.activo}
+        onConfirm={confirmToggle}
+        onCancel={() => {
+          setShowConfirmToggle(false);
+          setToggleUser(null);
+        }}
+      />
     </View>
   );
 }
@@ -442,11 +669,50 @@ const s = StyleSheet.create({
   emptyIcon: { fontSize: 40 },
   emptyText: { fontSize: 15, color: '#b8a99a' },
 
-  // Paginación
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 6 },
-  pageBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff9f5', borderWidth: 1, borderColor: '#e8ddd5', alignItems: 'center', justifyContent: 'center' },
-  pageBtnOff: { opacity: 0.4 },
-  pageLabel: { fontSize: 13, fontWeight: '600', color: '#7c6455' },
+  // Paginación minimalista en footer
+  pagBarFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  pagCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  pagCircleBtnOff: {
+    backgroundColor: '#f5f0ec',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pagDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e8ddd5',
+  },
+  pagDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#d4956a',
+  },
 
   // Modal
   overlay: { flex: 1, backgroundColor: 'rgba(61,44,30,0.35)', justifyContent: 'flex-end' },
@@ -485,4 +751,12 @@ const s = StyleSheet.create({
   filterPillTextActive: { color: '#d4956a', fontWeight: '700' },
   clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0ede8', marginTop: 4 },
   clearFiltersText: { fontSize: 12, fontWeight: '700', color: '#c0392b' },
+  filterSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf8f4', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 10, height: 38, gap: 6, marginBottom: 4 },
+  filterSearchInput: { flex: 1, fontSize: 13, color: '#3d2c1e', padding: 0 },
+  dropdownContainer: { position: 'relative', zIndex: 10, width: '100%' },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', marginTop: 4, shadowColor: '#c4a882', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4, overflow: 'hidden' },
+  dropdownItem: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fdf8f4' },
+  dropdownItemActive: { backgroundColor: '#fff3e6' },
+  dropdownItemText: { fontSize: 13, color: '#3d2c1e', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
 });

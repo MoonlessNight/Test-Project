@@ -468,13 +468,40 @@ const cancelarPedido = async (req, res) => {
 const getAllPedidos = async (req, res) => {
   try {
     // Extrae filtros y paginación de los query params
-    const { estado, usuarioId, pagina = 1, limite = 20 } = req.query;
+    const { estado, usuarioId, buscar, pagina = 1, limite = 20 } = req.query;
     
     // Construye filtros dinámicamente según lo que se envíe
     const where = {};
     if (estado) where.estado = estado;           // Filtro por estado
     if (usuarioId) where.usuarioId = usuarioId;  // Filtro por usuario específico
     
+    // Si viene término de búsqueda, filtramos por id o datos del usuario asociado
+    if (buscar) {
+      const { Op } = require('sequelize');
+      const words = buscar.trim().split(/\s+/).filter(Boolean);
+      
+      if (words.length > 0) {
+        const andConditions = [];
+        
+        for (const word of words) {
+          const wordConditions = [
+            { '$usuario.nombre$': { [Op.like]: `%${word}%` } },
+            { '$usuario.apellido$': { [Op.like]: `%${word}%` } },
+            { '$usuario.email$': { [Op.like]: `%${word}%` } }
+          ];
+          
+          // Si la palabra es numérica, intentamos buscar también por ID de pedido exacto
+          if (!isNaN(Number(word))) {
+            wordConditions.push({ id: Number(word) });
+          }
+          
+          andConditions.push({ [Op.or]: wordConditions });
+        }
+        
+        where[Op.and] = andConditions;
+      }
+    }
+
     const offset = (parseInt(pagina) - 1) * parseInt(limite);
     
     // Consulta todos los pedidos con datos del usuario y detalles
@@ -484,7 +511,7 @@ const getAllPedidos = async (req, res) => {
         {
           model: Usuario,
           as: 'usuario',
-          attributes: ['id', 'nombre', 'email']    // Datos del usuario que hizo el pedido
+          attributes: ['id', 'nombre', 'apellido', 'email']    // Incluye apellido
         },
         {
           model: DetallePedido,
@@ -498,6 +525,7 @@ const getAllPedidos = async (req, res) => {
       ],
       limit: parseInt(limite),
       offset,
+      subQuery: false, // Previene errores al filtrar por asociación con paginación
       order: [['createdAt', 'DESC']]     // Más recientes primero
     });
     
@@ -619,8 +647,13 @@ const getEstadisticasPedidos = async (req, res) => {
       group: ['estado']     // GROUP BY estado
     });
     
-    // Suma el campo 'total' de TODOS los pedidos (ventas acumuladas)
-    const ventasTotales = await Pedido.sum('total');
+    // Suma el campo 'total' de todos los pedidos excepto los cancelados y los de pago en efectivo
+    const ventasTotales = await Pedido.sum('total', {
+      where: {
+        estado: { [Op.ne]: 'cancelado' },
+        metodoPago: { [Op.ne]: 'efectivo' }
+      }
+    });
     
     // Calcula la fecha de hoy a las 00:00:00 para contar pedidos del día
     const hoy = new Date();
@@ -662,6 +695,43 @@ const getEstadisticasPedidos = async (req, res) => {
   }
 };
 
+/**
+ * Obtener usuarios que tienen al menos un pedido registrado - ADMIN
+ * 
+ * Ruta: GET /api/admin/pedidos/usuarios
+ */
+const getUsuariosConPedidos = async (req, res) => {
+  try {
+    const usuarios = await Usuario.findAll({
+      attributes: ['id', 'nombre', 'apellido', 'email'],
+      include: [
+        {
+          model: Pedido,
+          as: 'pedidos',
+          attributes: [],
+          required: true // INNER JOIN
+        }
+      ],
+      group: ['Usuario.id'],
+      order: [['nombre', 'ASC']]
+    });
+
+    res.json({
+      success: true,
+      data: {
+        usuarios
+      }
+    });
+  } catch (error) {
+    console.error('Error en getUsuariosConPedidos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener usuarios con pedidos',
+      error: error.message
+    });
+  }
+};
+
 // Exporta todas las funciones del controlador para usarlas en las rutas.
 module.exports = {
   // Funciones de CLIENTE (rutas en routes/cliente.routes.js)
@@ -673,5 +743,6 @@ module.exports = {
   // Funciones de ADMIN (rutas en routes/admin.routes.js)
   getAllPedidos,              // GET /api/admin/pedidos - Todos los pedidos
   actualizarEstadoPedido,    // PUT /api/admin/pedidos/:id/estado - Cambiar estado
-  getEstadisticasPedidos     // GET /api/admin/pedidos/estadisticas - Dashboard
+  getEstadisticasPedidos,    // GET /api/admin/pedidos/estadisticas - Dashboard
+  getUsuariosConPedidos      // GET /api/admin/pedidos/usuarios - Usuarios con pedidos
 };

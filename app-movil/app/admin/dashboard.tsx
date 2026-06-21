@@ -3,10 +3,11 @@
  * Diseño pastel cálido • Tarjetas con sombras suaves • Accesos rápidos • Info sistema
  */
 
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import apiClient from '../../src/api/apiClient';
 import { useAuth } from '../../src/context/AuthContext';
 import { API_ORIGIN_URL } from '../../src/utils/constants';
@@ -38,47 +39,49 @@ export default function AdminDashboardScreen() {
         productos: 0,
         usuarios: 0,
         pedidos: 0,
-        pendientes: 0,
         ventas: 0,
     });
 
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-            try {
-                const [cats, subs, prods, orders] = await Promise.all([
-                    apiClient.get('/admin/categorias'),
-                    apiClient.get('/admin/subcategorias'),
-                    apiClient.get('/admin/productos?limite=1'),
-                    apiClient.get('/admin/pedidos/estadisticas'),
-                ]);
+    useFocusEffect(
+        useCallback(() => {
+            const load = async () => {
+                setLoading(true);
+                try {
+                    const [cats, subs, prods, orders] = await Promise.all([
+                        apiClient.get('/admin/categorias'),
+                        apiClient.get('/admin/subcategorias'),
+                        apiClient.get('/admin/productos?limite=1'),
+                        apiClient.get('/admin/pedidos/estadisticas'),
+                    ]);
 
-                const userStats = isAdmin ? await apiClient.get('/admin/usuarios/stats') : null;
+                    const userStats = isAdmin ? await apiClient.get('/admin/usuarios/stats') : null;
 
-                const catsData = cats?.data?.data?.categorias || [];
-                const subsData = subs?.data?.data?.subcategorias || [];
-                const ordStats = orders.data?.data?.stats || {};
+                    const catsData = cats?.data?.data?.categorias || [];
+                    const subsData = subs?.data?.data?.subcategorias || [];
+                    const ordStats = orders.data?.data || {};
 
-                setStats({
-                    categorias: Array.isArray(catsData) ? catsData.length : 0,
-                    subcategorias: Array.isArray(subsData) ? subsData.length : 0,
-                    productos: prods.data?.data?.paginacion?.total || 0,
-                    usuarios: userStats?.data?.data?.stats?.totalUsuarios || 0,
-                    pedidos: ordStats.totalPedidos || 0,
-                    pendientes: ordStats.pedidosPendientes || 0,
-                    ventas: ordStats.ventasTotales || 0,
-                });
-            } catch (_) {
-                // ignore
-            } finally {
-                setLoading(false);
+                    setStats({
+                        categorias: Array.isArray(catsData) ? catsData.length : 0,
+                        subcategorias: Array.isArray(subsData) ? subsData.length : 0,
+                        productos: prods.data?.data?.paginacion?.total || 0,
+                        usuarios: userStats?.data?.data?.total || 0,
+                        pedidos: ordStats.totalPedidos || 0,
+                        ventas: Number(ordStats.ventasTotales) || 0,
+                    });
+                } catch (_) {
+                    // ignore
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (isAuthenticated && (isAdmin || isAuxiliar)) {
+                load();
             }
-        };
-
-        if (isAuthenticated && (isAdmin || isAuxiliar)) load();
-    }, [isAuthenticated, isAdmin, isAuxiliar]);
+        }, [isAuthenticated, isAdmin, isAuxiliar])
+    );
 
     if (!isAuthenticated || (!isAdmin && !isAuxiliar)) {
         return (
@@ -96,7 +99,6 @@ export default function AdminDashboardScreen() {
         { title: 'Productos',     value: stats.productos,     icon: 'cube-outline',        color: '#d4956a', bg: '#fef3e2', emoji: '📦', route: '/admin/productos', show: true },
         { title: 'Usuarios',      value: stats.usuarios,      icon: 'people-outline',      color: '#1a6b9e', bg: '#e8f4fd', emoji: '👥', route: '/admin/usuarios',  show: isAdmin },
         { title: 'Pedidos',       value: stats.pedidos,       icon: 'cart-outline',        color: '#52b788', bg: '#d8f3dc', emoji: '🛒', route: '/admin/pedidos',   show: true },
-        { title: 'Pendientes',    value: stats.pendientes,    icon: 'time-outline',        color: '#e07070', bg: '#fde8e8', emoji: '⏳', route: '/admin/pedidos',   show: true },
     ];
 
     const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;

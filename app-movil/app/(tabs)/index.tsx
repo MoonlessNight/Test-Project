@@ -5,7 +5,8 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Image, RefreshControl, Pressable, ScrollView, StyleSheet, TextInput, View, SafeAreaView, Text } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Image, Platform, RefreshControl, Pressable, ScrollView, StyleSheet, TextInput, View, Text } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 import catalogoService from "../../src/services/catalogoService";
 import { ThemedText } from "../../components/themed-text";
@@ -41,6 +42,33 @@ export default function HomeScreen() {
     const [selectorAbierto, setSelectorAbierto] = useState(false);
     const [productoDetalle, setProductoDetalle] = useState<any>(null);
     const [paginaActual, setPaginaActual] = useState(1);
+
+    const [dropdownOrdenOpen, setDropdownOrdenOpen] = useState(false);
+    const [textoBuscarOrden, setTextoBuscarOrden] = useState('');
+    const [dropdownCatOpen, setDropdownCatOpen] = useState(false);
+    const [textoBuscarCategoria, setTextoBuscarCategoria] = useState('');
+    const [dropdownSubOpen, setDropdownSubOpen] = useState(false);
+    const [textoBuscarSubcategoria, setTextoBuscarSubcategoria] = useState('');
+
+    const handleSelectCategoria = (id: string, name: string) => {
+        setCategoriaActiva(id);
+        setTextoBuscarCategoria(name);
+        setSubcategoriaActiva('all');
+        setTextoBuscarSubcategoria('');
+        setDropdownCatOpen(false);
+    };
+
+    const handleSelectSubcategoria = (id: string, name: string) => {
+        setSubcategoriaActiva(id);
+        setTextoBuscarSubcategoria(name);
+        setDropdownSubOpen(false);
+    };
+
+    const handleSelectOrden = (key: string, label: string) => {
+        setOrdenarPor(key);
+        setTextoBuscarOrden(label);
+        setDropdownOrdenOpen(false);
+    };
 
     // Carga de subcategorías al cambiar de categoría
     useEffect(() => {
@@ -213,88 +241,221 @@ export default function HomeScreen() {
                     {/* Ordenamiento */}
                     <View style={styles.filterGroup}>
                         <Text style={styles.filterLabel}>Ordenar por</Text>
-                        <View style={styles.pillRow}>
-                            {([
-                                { key: 'nombre', label: 'Nombre A-Z' },
-                                { key: 'precio_asc', label: 'Menor precio' },
-                                { key: 'precio_desc', label: 'Mayor precio' },
-                                { key: 'reciente', label: 'Más nuevos' },
-                            ] as const).map((ord) => (
-                                <Pressable
-                                    key={ord.key}
-                                    style={[styles.filterPill, ordenarPor === ord.key && styles.filterPillActive]}
-                                    onPress={() => setOrdenarPor(ord.key)}
-                                >
-                                    <Text style={[styles.filterPillText, ordenarPor === ord.key && styles.filterPillTextActive]}>
-                                        {ord.label}
-                                    </Text>
-                                </Pressable>
-                            ))}
+                        <View style={styles.dropdownContainer}>
+                            <View style={styles.filterSearchBox}>
+                                <Ionicons name="swap-vertical-outline" size={14} color="#d4956a" />
+                                <TextInput
+                                    placeholder="Buscar y seleccionar orden..."
+                                    placeholderTextColor="#9ca3af"
+                                    value={textoBuscarOrden}
+                                    onFocus={() => setDropdownOrdenOpen(true)}
+                                    onChangeText={(text) => {
+                                        setTextoBuscarOrden(text);
+                                        setDropdownOrdenOpen(true);
+                                        setOrdenarPor('nombre');
+                                    }}
+                                    style={styles.filterSearchInput}
+                                />
+                                {textoBuscarOrden.length > 0 || ordenarPor !== 'nombre' ? (
+                                    <Pressable onPress={() => {
+                                        setTextoBuscarOrden('');
+                                        setOrdenarPor('nombre');
+                                        setDropdownOrdenOpen(false);
+                                    }}>
+                                        <Ionicons name="close-circle" size={16} color="#9e8879" />
+                                    </Pressable>
+                                ) : (
+                                    <Pressable onPress={() => setDropdownOrdenOpen(!dropdownOrdenOpen)}>
+                                        <Ionicons name={dropdownOrdenOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#9e8879" />
+                                    </Pressable>
+                                )}
+                            </View>
+                            {dropdownOrdenOpen && (
+                                <View style={styles.dropdownList}>
+                                    <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                                        {[
+                                            { key: 'nombre', label: '🔤 Nombre A-Z' },
+                                            { key: 'precio_asc', label: '🪙 Menor precio' },
+                                            { key: 'precio_desc', label: '💰 Mayor precio' },
+                                            { key: 'reciente', label: '🕓 Más nuevos' }
+                                        ]
+                                            .filter(item => item.label.toLowerCase().includes(textoBuscarOrden.toLowerCase()))
+                                            .map((item) => {
+                                                const isSelected = ordenarPor === item.key;
+                                                return (
+                                                    <Pressable
+                                                        key={item.key}
+                                                        style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
+                                                        onPress={() => {
+                                                            handleSelectOrden(item.key, item.label);
+                                                        }}
+                                                    >
+                                                        <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>
+                                                            {item.label}
+                                                        </Text>
+                                                    </Pressable>
+                                                );
+                                            })}
+                                    </ScrollView>
+                                </View>
+                            )}
                         </View>
                     </View>
 
                     {/* Categorías */}
                     <View style={styles.filterGroup}>
                         <Text style={styles.filterLabel}>Categoría</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollPillRow}>
-                            <Pressable
-                                style={[styles.filterPill, categoriaActiva === 'all' && styles.filterPillActive]}
-                                onPress={() => setCategoriaActiva('all')}
-                            >
-                                <Text style={[styles.filterPillText, categoriaActiva === 'all' && styles.filterPillTextActive]}>
-                                    Todas
-                                </Text>
-                            </Pressable>
-                            {categorias.map((cat: any) => (
-                                <Pressable
-                                    key={String(cat.id)}
-                                    style={[styles.filterPill, categoriaActiva === String(cat.id) && styles.filterPillActive]}
-                                    onPress={() => setCategoriaActiva(String(cat.id))}
-                                >
-                                    <Text style={[styles.filterPillText, categoriaActiva === String(cat.id) && styles.filterPillTextActive]}>
-                                        {cat.nombre}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
+                        <View style={styles.dropdownContainer}>
+                            <View style={styles.filterSearchBox}>
+                                <Ionicons name="folder-open-outline" size={14} color="#d4956a" />
+                                <TextInput
+                                    placeholder="Buscar y seleccionar categoría..."
+                                    placeholderTextColor="#9ca3af"
+                                    value={textoBuscarCategoria}
+                                    onFocus={() => setDropdownCatOpen(true)}
+                                    onChangeText={(text) => {
+                                        setTextoBuscarCategoria(text);
+                                        setDropdownCatOpen(true);
+                                        setCategoriaActiva('all');
+                                    }}
+                                    style={styles.filterSearchInput}
+                                />
+                                {textoBuscarCategoria.length > 0 || categoriaActiva !== 'all' ? (
+                                    <Pressable onPress={() => {
+                                        handleSelectCategoria('all', '');
+                                    }}>
+                                        <Ionicons name="close-circle" size={16} color="#9e8879" />
+                                    </Pressable>
+                                ) : (
+                                    <Pressable onPress={() => setDropdownCatOpen(!dropdownCatOpen)}>
+                                        <Ionicons name={dropdownCatOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#9e8879" />
+                                    </Pressable>
+                                )}
+                            </View>
+
+                            {dropdownCatOpen && (
+                                <View style={styles.dropdownList}>
+                                    <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                                        <Pressable
+                                            style={[styles.dropdownItem, categoriaActiva === 'all' && styles.dropdownItemActive]}
+                                            onPress={() => {
+                                                handleSelectCategoria('all', '');
+                                            }}
+                                        >
+                                            <Text style={[styles.dropdownItemText, categoriaActiva === 'all' && styles.dropdownItemTextActive]}>
+                                                📁 Todas las categorías
+                                            </Text>
+                                        </Pressable>
+
+                                        {categorias
+                                            .filter((cat: any) => (cat.nombre || '').toLowerCase().includes(textoBuscarCategoria.toLowerCase()))
+                                            .map((cat: any) => {
+                                                const isSelected = categoriaActiva === String(cat.id);
+                                                return (
+                                                    <Pressable
+                                                        key={String(cat.id)}
+                                                        style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
+                                                        onPress={() => {
+                                                            handleSelectCategoria(String(cat.id), cat.nombre || '');
+                                                        }}
+                                                    >
+                                                        <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>
+                                                            📁 {cat.nombre}
+                                                        </Text>
+                                                    </Pressable>
+                                                );
+                                            })}
+                                    </ScrollView>
+                                </View>
+                            )}
+                        </View>
                     </View>
 
                     {/* Subcategorías */}
                     {categoriaActiva !== 'all' && subcategorias.length > 0 && (
                         <View style={styles.filterGroup}>
                             <Text style={styles.filterLabel}>Subcategoría</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollPillRow}>
-                                <Pressable
-                                    style={[styles.filterPill, subcategoriaActiva === 'all' && styles.filterPillActive]}
-                                    onPress={() => setSubcategoriaActiva('all')}
-                                >
-                                    <Text style={[styles.filterPillText, subcategoriaActiva === 'all' && styles.filterPillTextActive]}>
-                                        Todas
-                                    </Text>
-                                </Pressable>
-                                {subcategorias.map((sub: any) => (
-                                    <Pressable
-                                        key={String(sub.id)}
-                                        style={[styles.filterPill, subcategoriaActiva === String(sub.id) && styles.filterPillActive]}
-                                        onPress={() => setSubcategoriaActiva(String(sub.id))}
-                                    >
-                                        <Text style={[styles.filterPillText, subcategoriaActiva === String(sub.id) && styles.filterPillTextActive]}>
-                                            {sub.nombre}
-                                        </Text>
-                                    </Pressable>
-                                ))}
-                            </ScrollView>
+                            <View style={styles.dropdownContainer}>
+                                <View style={styles.filterSearchBox}>
+                                    <Ionicons name="pricetag-outline" size={14} color="#d4956a" />
+                                    <TextInput
+                                        placeholder="Buscar y seleccionar subcategoría..."
+                                        placeholderTextColor="#9ca3af"
+                                        value={textoBuscarSubcategoria}
+                                        onFocus={() => setDropdownSubOpen(true)}
+                                        onChangeText={(text) => {
+                                            setTextoBuscarSubcategoria(text);
+                                            setDropdownSubOpen(true);
+                                            setSubcategoriaActiva('all');
+                                        }}
+                                        style={styles.filterSearchInput}
+                                    />
+                                    {textoBuscarSubcategoria.length > 0 || subcategoriaActiva !== 'all' ? (
+                                        <Pressable onPress={() => {
+                                            handleSelectSubcategoria('all', '');
+                                        }}>
+                                            <Ionicons name="close-circle" size={16} color="#9e8879" />
+                                        </Pressable>
+                                    ) : (
+                                        <Pressable onPress={() => setDropdownSubOpen(!dropdownSubOpen)}>
+                                            <Ionicons name={dropdownSubOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#9e8879" />
+                                        </Pressable>
+                                    )}
+                                </View>
+
+                                {dropdownSubOpen && (
+                                    <View style={styles.dropdownList}>
+                                        <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                                            <Pressable
+                                                style={[styles.dropdownItem, subcategoriaActiva === 'all' && styles.dropdownItemActive]}
+                                                onPress={() => {
+                                                    handleSelectSubcategoria('all', '');
+                                                }}
+                                            >
+                                                <Text style={[styles.dropdownItemText, subcategoriaActiva === 'all' && styles.dropdownItemTextActive]}>
+                                                    🏷️ Todas las subcategorías
+                                                </Text>
+                                            </Pressable>
+
+                                            {subcategorias
+                                                .filter((sub: any) => (sub.nombre || '').toLowerCase().includes(textoBuscarSubcategoria.toLowerCase()))
+                                                .map((sub: any) => {
+                                                    const isSelected = subcategoriaActiva === String(sub.id);
+                                                    return (
+                                                        <Pressable
+                                                            key={String(sub.id)}
+                                                            style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
+                                                            onPress={() => {
+                                                                handleSelectSubcategoria(String(sub.id), sub.nombre || '');
+                                                            }}
+                                                        >
+                                                            <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>
+                                                                🏷️ {sub.nombre}
+                                                            </Text>
+                                                        </Pressable>
+                                                    );
+                                                })}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                            </View>
                         </View>
                     )}
 
                     {/* Limpiar Filtros */}
-                    {(categoriaActiva !== 'all' || subcategoriaActiva !== 'all' || ordenarPor !== 'nombre') && (
+                    {(categoriaActiva !== 'all' || subcategoriaActiva !== 'all' || ordenarPor !== 'nombre' || textoBuscarCategoria !== '' || textoBuscarSubcategoria !== '' || textoBuscarOrden !== '') && (
                         <Pressable
                             style={styles.clearFiltersBtn}
                             onPress={() => {
                                 setCategoriaActiva('all');
                                 setSubcategoriaActiva('all');
                                 setOrdenarPor('nombre');
+                                setTextoBuscarCategoria('');
+                                setTextoBuscarSubcategoria('');
+                                setTextoBuscarOrden('');
+                                setDropdownCatOpen(false);
+                                setDropdownSubOpen(false);
+                                setDropdownOrdenOpen(false);
                             }}
                         >
                             <Ionicons name="trash-outline" size={14} color="#e07070" />
@@ -330,34 +491,40 @@ export default function HomeScreen() {
         </>
     );
 
-    const ListFooter = () =>
-        !loading && hasProductos && totalPaginas > 1 ? (
-            <View style={styles.paginacionRow}>
+    const ListFooter = () => {
+        if (loading || !hasProductos || totalPaginas <= 1) {
+            return <View style={{ height: 16 }} />;
+        }
+        return (
+            <View style={styles.pagBarFooter}>
                 <Pressable
-                    style={[styles.pagBtn, paginaActual === 1 && styles.pagBtnDisabled]}
+                    style={[styles.pagCircleBtn, paginaActual === 1 && styles.pagCircleBtnOff]}
                     onPress={() => setPaginaActual((p) => Math.max(1, p - 1))}
                     disabled={paginaActual === 1}>
-                    <Ionicons name="chevron-back" size={15} color={paginaActual === 1 ? '#b8a99a' : '#d4956a'} />
-                    <ThemedText style={[styles.pagBtnText, paginaActual === 1 && styles.pagBtnTextDisabled]}>
-                        Anterior
-                    </ThemedText>
+                    <Ionicons name="chevron-back" size={18} color={paginaActual === 1 ? '#d0c4bb' : '#d4956a'} />
                 </Pressable>
-                <ThemedText style={styles.pagInfo}>
-                    {paginaActual} de {totalPaginas} páginas
-                </ThemedText>
+
+                <View style={styles.pagDots}>
+                    {Array.from({ length: totalPaginas }, (_, i) => (
+                        <View
+                            key={i}
+                            style={[
+                                styles.pagDot,
+                                i + 1 === paginaActual && styles.pagDotActive
+                            ]}
+                        />
+                    ))}
+                </View>
+
                 <Pressable
-                    style={[styles.pagBtn, paginaActual === totalPaginas && styles.pagBtnDisabled]}
+                    style={[styles.pagCircleBtn, paginaActual === totalPaginas && styles.pagCircleBtnOff]}
                     onPress={() => setPaginaActual((p) => Math.min(totalPaginas, p + 1))}
                     disabled={paginaActual === totalPaginas}>
-                    <ThemedText style={[styles.pagBtnText, paginaActual === totalPaginas && styles.pagBtnTextDisabled]}>
-                        Siguiente
-                    </ThemedText>
-                    <Ionicons name="chevron-forward" size={15} color={paginaActual === totalPaginas ? '#b8a99a' : '#d4956a'} />
+                    <Ionicons name="chevron-forward" size={18} color={paginaActual === totalPaginas ? '#d0c4bb' : '#d4956a'} />
                 </Pressable>
             </View>
-        ) : (
-            <View style={{ height: 24 }} />
         );
+    };
 
     const renderProducto = ({ item: producto, index }: { item: any; index: number }) => (
         <Pressable
@@ -413,6 +580,7 @@ export default function HomeScreen() {
                     />
                 }
             />
+
 
             {productoDetalle && (
                 <Modal
@@ -487,7 +655,7 @@ const styles = StyleSheet.create({
   flatList: { flex: 1, backgroundColor: '#fdf8f4' },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingBottom: 16,
     backgroundColor: '#fdf8f4',
   },
 
@@ -858,40 +1026,64 @@ const styles = StyleSheet.create({
   },
 
   // ── PAGINACIÓN ────────────────────────────────────
-  paginacionRow: {
+  paginacionRow: { display: 'none' },
+  pagBtn: { display: 'none' },
+  pagBtnDisabled: {},
+  pagBtnText: { color: '#d4956a' },
+  pagBtnTextDisabled: { color: '#b8a99a' },
+  pagInfo: { color: '#3d2c1e', fontWeight: '700', fontSize: 13 },
+
+  // barra minimalista en footer
+  pagBarFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    justifyContent: 'center',
+    gap: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 90,
   },
-  pagBtn: {
+  pagCircleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  pagCircleBtnOff: {
+    backgroundColor: '#f5f0ec',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pagDots: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#d4956a',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    gap: 6,
   },
-  pagBtnDisabled: {
-    borderColor: '#e8ddd5',
+  pagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e8ddd5',
   },
-  pagBtnText: {
-    color: '#d4956a',
-    fontWeight: '700',
-    fontSize: 13,
+  pagDotActive: {
+    width: 20,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#d4956a',
   },
-  pagBtnTextDisabled: {
-    color: '#b8a99a',
-  },
-  pagInfo: {
-    color: '#3d2c1e',
-    fontWeight: '700',
-    fontSize: 13,
-  },
+  // legacy (unused but kept for TS)
+  pagSolidBtn: { display: 'none' },
+  pagSolidBtnOff: {},
+  pagSolidBtnText: { color: '#fff' },
+  pagSolidBtnTextOff: { color: '#b8a99a' },
+  pagPillInfo: { display: 'none' },
+  pagPillInfoText: { color: '#3d2c1e' },
 
   // ── MODAL ─────────────────────────────────────────
   modalBackdrop: {
@@ -955,4 +1147,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 8,
   },
+  dropdownContainer: { position: 'relative', zIndex: 10, width: '100%' },
+  filterSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 10, height: 38, gap: 6, marginBottom: 4 },
+  filterSearchInput: { flex: 1, fontSize: 13, color: '#3d2c1e', padding: 0 },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', marginTop: 4, shadowColor: '#c4a882', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4, overflow: 'hidden' },
+  dropdownItem: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fdf8f4' },
+  dropdownItemActive: { backgroundColor: '#fff3e6' },
+  dropdownItemText: { fontSize: 13, color: '#3d2c1e', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
 });
+

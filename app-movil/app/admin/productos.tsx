@@ -19,6 +19,9 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/themed-text';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import ConfirmModal from '../../components/confirm-modal';
 import AdminToast from '../../components/admin-toast';
 import apiClient from '../../src/api/apiClient';
 import catalogoService from '../../src/services/catalogoService';
@@ -66,20 +69,30 @@ export default function AdminProductosScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
   const [selected, setSelected] = useState<Producto | null>(null);
 
   // Filtros adicionales
   const [showFiltros, setShowFiltros] = useState(false);
   const [filtroActivo, setFiltroActivo] = useState<'all' | 'true' | 'false'>('all');
+  const [dropdownActivoOpen, setDropdownActivoOpen] = useState(false);
+  const [textoBuscarActivo, setTextoBuscarActivo] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
+  const [dropdownCatOpen, setDropdownCatOpen] = useState(false);
+  const [textoBuscarCategoria, setTextoBuscarCategoria] = useState('');
   const [filtroSubcategoria, setFiltroSubcategoria] = useState<string>('');
+  const [dropdownSubOpen, setDropdownSubOpen] = useState(false);
+  const [textoBuscarSubcategoria, setTextoBuscarSubcategoria] = useState('');
   const [ordenarPor, setOrdenarPor] = useState<'nombre' | 'reciente' | 'antiguo'>('nombre');
+  const [dropdownOrdenOpen, setDropdownOrdenOpen] = useState(false);
+  const [textoBuscarOrden, setTextoBuscarOrden] = useState('');
 
   const [categorias, setCategorias] = useState<any[]>([]);
   const [subcategorias, setSubcategorias] = useState<any[]>([]);
 
-  const params = useLocalSearchParams<{ productoId?: string }>();
+  const params = useLocalSearchParams<{ toastMessage?: string; toastType?: string; productoId?: string }>();
+
+  const [showConfirmToggle, setShowConfirmToggle] = useState(false);
+  const [toggleProduct, setToggleProduct] = useState<Producto | null>(null);
 
   const { toast, showToast } = useToast();
 
@@ -106,7 +119,6 @@ export default function AdminProductosScreen() {
   }, []);
 
   const fetchProductos = async (
-    page = 1,
     search = '',
     isRefresh = false,
     activeFilter = filtroActivo,
@@ -123,8 +135,7 @@ export default function AdminProductosScreen() {
       if (catFilter) params.push(`categoriaId=${catFilter}`);
       if (subFilter) params.push(`subcategoriaId=${subFilter}`);
       if (activeFilter !== 'all') params.push(`activo=${activeFilter}`);
-      params.push(`pagina=${page}`);
-      params.push('limite=10');
+      params.push('limite=1000');
 
       const res = await apiClient.get(`/admin/productos?${params.join('&')}`);
       let data: Producto[] = res.data?.data?.productos || [];
@@ -139,8 +150,6 @@ export default function AdminProductosScreen() {
       }
 
       setProductos(data);
-      setPagina(page);
-      setTotalPaginas(res.data?.data?.paginacion?.totalPaginas || 1);
     } catch (error: unknown) {
       setErrorMessage((error as { message?: string })?.message || 'Error al cargar productos');
     } finally {
@@ -149,16 +158,39 @@ export default function AdminProductosScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (params.toastMessage) {
+        showToast(params.toastMessage, (params.toastType as any) || 'success');
+        router.setParams({ toastMessage: '', toastType: '' });
+      }
+      fetchProductos(busqueda);
+    }, [params.toastMessage, params.toastType])
+  );
+
   useEffect(() => {
-    fetchProductos(1, busqueda);
+    setPagina(1);
+    fetchProductos(busqueda);
   }, [filtroActivo, filtroCategoria, filtroSubcategoria, ordenarPor]);
 
-  const handleSelectCategoria = (id: string) => {
+  const handleSelectCategoria = (id: string, nombreCat: string) => {
     setFiltroCategoria(id);
     setFiltroSubcategoria('');
+    setTextoBuscarCategoria(nombreCat);
+    setTextoBuscarSubcategoria('');
+    setDropdownCatOpen(false);
   };
 
-  const handleToggle = async (item: Producto) => {
+  const handleToggle = (item: Producto) => {
+    setToggleProduct(item);
+    setShowConfirmToggle(true);
+  };
+
+  const confirmToggle = async () => {
+    if (!toggleProduct) return;
+    setShowConfirmToggle(false);
+    const item = toggleProduct;
+    setToggleProduct(null);
     try {
       if (item.activo) {
         await desactivarProducto(item.id);
@@ -167,10 +199,48 @@ export default function AdminProductosScreen() {
         await activarProducto(item.id);
         showToast(`"${item.nombre}" activado`, 'success');
       }
-      fetchProductos(pagina, busqueda);
+      fetchProductos(busqueda);
     } catch {
       showToast('No se pudo cambiar el estado', 'error');
     }
+  };
+
+  const totalPaginas = Math.ceil(productos.length / 10) || 1;
+  const productosVisibles = productos.slice((pagina - 1) * 10, pagina * 10);
+
+  const ListFooter = () => {
+    if (loading || productos.length === 0 || totalPaginas <= 1) {
+      return <View style={{ height: 24 }} />;
+    }
+    return (
+      <View style={s.pagBarFooter}>
+        <Pressable
+          style={[s.pagCircleBtn, pagina <= 1 && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.max(1, p - 1))}
+          disabled={pagina <= 1}>
+          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+
+        <View style={s.pagDots}>
+          {Array.from({ length: totalPaginas }, (_, i) => (
+            <View
+              key={i}
+              style={[
+                s.pagDot,
+                i + 1 === pagina && s.pagDotActive
+              ]}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          style={[s.pagCircleBtn, pagina >= totalPaginas && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+          disabled={pagina >= totalPaginas}>
+          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+      </View>
+    );
   };
 
   return (
@@ -182,7 +252,6 @@ export default function AdminProductosScreen() {
       </View>
 
       {/* Búsqueda + Crear */}
-      {/* Búsqueda + Crear */}
       <View style={s.searchRow}>
         <View style={s.inputWrap}>
           <Ionicons name="search-outline" size={15} color="#b8a99a" />
@@ -190,7 +259,7 @@ export default function AdminProductosScreen() {
             placeholder="Buscar producto..."
             placeholderTextColor="#b8a99a"
             value={busqueda}
-            onChangeText={(t) => { setBusqueda(t); fetchProductos(1, t); }}
+            onChangeText={(t) => { setBusqueda(t); setPagina(1); fetchProductos(t); }}
             style={s.input}
           />
         </View>
@@ -212,97 +281,287 @@ export default function AdminProductosScreen() {
           {/* Fila: Estado */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Estado</ThemedText>
-            <View style={s.pillRow}>
-              {(['all', 'true', 'false'] as const).map((st) => (
-                <Pressable
-                  key={st}
-                  style={[s.filterPill, filtroActivo === st && s.filterPillActive]}
-                  onPress={() => setFiltroActivo(st)}
-                >
-                  <ThemedText style={[s.filterPillText, filtroActivo === st && s.filterPillTextActive]}>
-                    {st === 'all' ? 'Todos' : st === 'true' ? 'Activos' : 'Inactivos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="toggle-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar estado..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarActivo}
+                  onFocus={() => setDropdownActivoOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarActivo(text);
+                    setDropdownActivoOpen(true);
+                    setFiltroActivo('all');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarActivo.length > 0 || filtroActivo !== 'all' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarActivo('');
+                    setFiltroActivo('all');
+                    setDropdownActivoOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownActivoOpen(!dropdownActivoOpen)}>
+                    <Ionicons name={dropdownActivoOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownActivoOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'all', label: '📋 Todos' },
+                      { key: 'true', label: '🟢 Activos' },
+                      { key: 'false', label: '🔴 Inactivos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarActivo.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = filtroActivo === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setFiltroActivo(item.key as any);
+                              setTextoBuscarActivo(item.label);
+                              setDropdownActivoOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Fila: Ordenamiento */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Ordenar por</ThemedText>
-            <View style={s.pillRow}>
-              {(['nombre', 'reciente', 'antiguo'] as const).map((ord) => (
-                <Pressable
-                  key={ord}
-                  style={[s.filterPill, ordenarPor === ord && s.filterPillActive]}
-                  onPress={() => setOrdenarPor(ord)}
-                >
-                  <ThemedText style={[s.filterPillText, ordenarPor === ord && s.filterPillTextActive]}>
-                    {ord === 'nombre' ? 'Nombre A-Z' : ord === 'reciente' ? 'Más nuevos' : 'Más antiguos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="swap-vertical-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar orden..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarOrden}
+                  onFocus={() => setDropdownOrdenOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarOrden(text);
+                    setDropdownOrdenOpen(true);
+                    setOrdenarPor('nombre');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarOrden.length > 0 || ordenarPor !== 'nombre' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarOrden('');
+                    setOrdenarPor('nombre');
+                    setDropdownOrdenOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownOrdenOpen(!dropdownOrdenOpen)}>
+                    <Ionicons name={dropdownOrdenOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownOrdenOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'nombre', label: '🔤 Nombre A-Z' },
+                      { key: 'reciente', label: '🕓 Más nuevos' },
+                      { key: 'antiguo', label: '📅 Más antiguos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarOrden.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = ordenarPor === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setOrdenarPor(item.key as any);
+                              setTextoBuscarOrden(item.label);
+                              setDropdownOrdenOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Fila: Categoría */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Categoría</ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.scrollPillRow}>
-              <Pressable
-                style={[s.filterPill, !filtroCategoria && s.filterPillActive]}
-                onPress={() => handleSelectCategoria('')}
-              >
-                <ThemedText style={[s.filterPillText, !filtroCategoria && s.filterPillTextActive]}>
-                  Todas
-                </ThemedText>
-              </Pressable>
-              {categorias.map((cat) => (
-                <Pressable
-                  key={String(cat.id)}
-                  style={[s.filterPill, filtroCategoria === String(cat.id) && s.filterPillActive]}
-                  onPress={() => handleSelectCategoria(String(cat.id))}
-                >
-                  <ThemedText style={[s.filterPillText, filtroCategoria === String(cat.id) && s.filterPillTextActive]}>
-                    {cat.nombre}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="folder-open-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar categoría..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarCategoria}
+                  onFocus={() => setDropdownCatOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarCategoria(text);
+                    setDropdownCatOpen(true);
+                    setFiltroCategoria('');
+                    setFiltroSubcategoria('');
+                    setTextoBuscarSubcategoria('');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarCategoria.length > 0 || filtroCategoria !== '' ? (
+                  <Pressable onPress={() => {
+                    handleSelectCategoria('', '');
+                    setDropdownCatOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownCatOpen(!dropdownCatOpen)}>
+                    <Ionicons name={dropdownCatOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+
+              {dropdownCatOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    <Pressable
+                      style={[s.dropdownItem, !filtroCategoria && s.dropdownItemActive]}
+                      onPress={() => {
+                        handleSelectCategoria('', '');
+                      }}
+                    >
+                      <ThemedText style={[s.dropdownItemText, !filtroCategoria && s.dropdownItemTextActive]}>
+                        📁 Todas las categorías
+                      </ThemedText>
+                    </Pressable>
+
+                    {categorias
+                      .filter((cat) => {
+                        return (cat.nombre || '').toLowerCase().includes(textoBuscarCategoria.toLowerCase());
+                      })
+                      .map((cat) => {
+                        const isSelected = filtroCategoria === String(cat.id);
+                        return (
+                          <Pressable
+                            key={String(cat.id)}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              handleSelectCategoria(String(cat.id), cat.nombre || '');
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              📁 {cat.nombre}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Fila: Subcategoría */}
           {!!filtroCategoria && (
             <View style={s.filterGroup}>
               <ThemedText style={s.filterLabel}>Subcategoría</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.scrollPillRow}>
-                <Pressable
-                  style={[s.filterPill, !filtroSubcategoria && s.filterPillActive]}
-                  onPress={() => setFiltroSubcategoria('')}
-                >
-                  <ThemedText style={[s.filterPillText, !filtroSubcategoria && s.filterPillTextActive]}>
-                    Todas
-                  </ThemedText>
-                </Pressable>
-                {subcategorias
-                  .filter(sub => String(sub.categoriaId) === filtroCategoria)
-                  .map((sub) => (
-                    <Pressable
-                      key={String(sub.id)}
-                      style={[s.filterPill, filtroSubcategoria === String(sub.id) && s.filterPillActive]}
-                      onPress={() => setFiltroSubcategoria(String(sub.id))}
-                    >
-                      <ThemedText style={[s.filterPillText, filtroSubcategoria === String(sub.id) && s.filterPillTextActive]}>
-                        {sub.nombre}
-                      </ThemedText>
+              <View style={s.dropdownContainer}>
+                <View style={s.filterSearchBox}>
+                  <Ionicons name="pricetag-outline" size={14} color="#d4956a" />
+                  <TextInput
+                    placeholder="Buscar y seleccionar subcategoría..."
+                    placeholderTextColor="#b8a99a"
+                    value={textoBuscarSubcategoria}
+                    onFocus={() => setDropdownSubOpen(true)}
+                    onChangeText={(text) => {
+                      setTextoBuscarSubcategoria(text);
+                      setDropdownSubOpen(true);
+                      setFiltroSubcategoria('');
+                    }}
+                    style={s.filterSearchInput}
+                  />
+                  {textoBuscarSubcategoria.length > 0 || filtroSubcategoria !== '' ? (
+                    <Pressable onPress={() => {
+                      setTextoBuscarSubcategoria('');
+                      setFiltroSubcategoria('');
+                      setDropdownSubOpen(false);
+                    }}>
+                      <Ionicons name="close-circle" size={16} color="#b8a99a" />
                     </Pressable>
-                  ))}
-              </ScrollView>
+                  ) : (
+                    <Pressable onPress={() => setDropdownSubOpen(!dropdownSubOpen)}>
+                      <Ionicons name={dropdownSubOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                    </Pressable>
+                  )}
+                </View>
+
+                {dropdownSubOpen && (
+                  <View style={s.dropdownList}>
+                    <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                      <Pressable
+                        style={[s.dropdownItem, !filtroSubcategoria && s.dropdownItemActive]}
+                        onPress={() => {
+                          setFiltroSubcategoria('');
+                          setTextoBuscarSubcategoria('');
+                          setDropdownSubOpen(false);
+                        }}
+                      >
+                        <ThemedText style={[s.dropdownItemText, !filtroSubcategoria && s.dropdownItemTextActive]}>
+                          🏷️ Todas las subcategorías
+                        </ThemedText>
+                      </Pressable>
+
+                      {subcategorias
+                        .filter(sub => String(sub.categoriaId) === filtroCategoria)
+                        .filter(sub => (sub.nombre || '').toLowerCase().includes(textoBuscarSubcategoria.toLowerCase()))
+                        .map((sub) => {
+                          const isSelected = filtroSubcategoria === String(sub.id);
+                          return (
+                            <Pressable
+                              key={String(sub.id)}
+                              style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                              onPress={() => {
+                                setFiltroSubcategoria(String(sub.id));
+                                setTextoBuscarSubcategoria(sub.nombre || '');
+                                setDropdownSubOpen(false);
+                              }}
+                            >
+                              <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                                🏷️ {sub.nombre}
+                              </ThemedText>
+                            </Pressable>
+                          );
+                        })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
             </View>
           )}
 
           {/* Botón limpiar */}
-          {(!!filtroCategoria || !!filtroSubcategoria || filtroActivo !== 'all' || ordenarPor !== 'nombre') && (
+          {(!!filtroCategoria || !!filtroSubcategoria || filtroActivo !== 'all' || ordenarPor !== 'nombre' || textoBuscarCategoria !== '' || textoBuscarSubcategoria !== '' || textoBuscarActivo !== '' || textoBuscarOrden !== '') && (
             <Pressable
               style={s.clearFiltersBtn}
               onPress={() => {
@@ -310,6 +569,14 @@ export default function AdminProductosScreen() {
                 setFiltroSubcategoria('');
                 setFiltroActivo('all');
                 setOrdenarPor('nombre');
+                setTextoBuscarCategoria('');
+                setTextoBuscarSubcategoria('');
+                setTextoBuscarActivo('');
+                setTextoBuscarOrden('');
+                setDropdownCatOpen(false);
+                setDropdownSubOpen(false);
+                setDropdownActivoOpen(false);
+                setDropdownOrdenOpen(false);
               }}
             >
               <Ionicons name="trash-outline" size={14} color="#c0392b" />
@@ -324,12 +591,12 @@ export default function AdminProductosScreen() {
 
       {/* Lista */}
       <FlatList
-        data={productos}
+        data={productosVisibles}
         keyExtractor={(item) => String(item.id)}
         style={s.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchProductos(1, busqueda, true)} colors={['#d4956a']} tintColor="#d4956a" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setPagina(1); fetchProductos(busqueda, true); }} colors={['#d4956a']} tintColor="#d4956a" />
         }
         renderItem={({ item }) => (
           <Pressable style={s.card} onPress={() => setSelected(item)}>
@@ -366,18 +633,8 @@ export default function AdminProductosScreen() {
             <ThemedText style={s.emptyText}>No hay productos aún</ThemedText>
           </View>
         ) : null}
+        ListFooterComponent={<ListFooter />}
       />
-
-      {/* Paginación */}
-      <View style={s.pagination}>
-        <Pressable style={[s.pageBtn, pagina <= 1 && s.pageBtnOff]} onPress={() => pagina > 1 && fetchProductos(pagina - 1, busqueda)} disabled={pagina <= 1}>
-          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#7c5c45'} />
-        </Pressable>
-        <ThemedText style={s.pageLabel}>Página {pagina} de {totalPaginas}</ThemedText>
-        <Pressable style={[s.pageBtn, pagina >= totalPaginas && s.pageBtnOff]} onPress={() => pagina < totalPaginas && fetchProductos(pagina + 1, busqueda)} disabled={pagina >= totalPaginas}>
-          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#7c5c45'} />
-        </Pressable>
-      </View>
 
       {/* Modal detalle */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
@@ -448,6 +705,20 @@ export default function AdminProductosScreen() {
       </Modal>
 
       <AdminToast message={toast.message} type={toast.type} visible={toast.visible} />
+      <ConfirmModal
+        visible={showConfirmToggle}
+        title={toggleProduct?.activo ? 'Desactivar Producto' : 'Activar Producto'}
+        message={`¿Estás seguro de que deseas ${toggleProduct?.activo ? 'desactivar' : 'activar'} el producto "${toggleProduct?.nombre}"?`}
+        icon={toggleProduct?.activo ? 'eye-off-outline' : 'eye-outline'}
+        confirmText={toggleProduct?.activo ? 'Desactivar' : 'Activar'}
+        cancelText="Cancelar"
+        isDestructive={toggleProduct?.activo}
+        onConfirm={confirmToggle}
+        onCancel={() => {
+          setShowConfirmToggle(false);
+          setToggleProduct(null);
+        }}
+      />
     </View>
   );
 }
@@ -498,11 +769,50 @@ const s = StyleSheet.create({
   emptyIcon: { fontSize: 40 },
   emptyText: { fontSize: 15, color: '#b8a99a' },
 
-  // Paginación
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 6 },
-  pageBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff9f5', borderWidth: 1, borderColor: '#e8ddd5', alignItems: 'center', justifyContent: 'center' },
-  pageBtnOff: { opacity: 0.4 },
-  pageLabel: { fontSize: 13, fontWeight: '600', color: '#7c6455' },
+  // Paginación minimalista en footer
+  pagBarFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  pagCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  pagCircleBtnOff: {
+    backgroundColor: '#f5f0ec',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pagDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e8ddd5',
+  },
+  pagDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#d4956a',
+  },
 
   // Modal
   overlay: { flex: 1, backgroundColor: 'rgba(61,44,30,0.35)', justifyContent: 'flex-end' },
@@ -542,4 +852,12 @@ const s = StyleSheet.create({
   filterPillTextActive: { color: '#d4956a', fontWeight: '700' },
   clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0ede8', marginTop: 4 },
   clearFiltersText: { fontSize: 12, fontWeight: '700', color: '#c0392b' },
+  filterSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf8f4', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 10, height: 38, gap: 6, marginBottom: 4 },
+  filterSearchInput: { flex: 1, fontSize: 13, color: '#3d2c1e', padding: 0 },
+  dropdownContainer: { position: 'relative', zIndex: 10, width: '100%' },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', marginTop: 4, shadowColor: '#c4a882', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4, overflow: 'hidden' },
+  dropdownItem: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fdf8f4' },
+  dropdownItemActive: { backgroundColor: '#fff3e6' },
+  dropdownItemText: { fontSize: 13, color: '#3d2c1e', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
 });

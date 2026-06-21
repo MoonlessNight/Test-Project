@@ -26,6 +26,7 @@ import { ThemedView } from '../components/themed-view';
 import { useAuth } from '../src/context/AuthContext';
 import { useCarrito } from '../src/context/CarritoContext';
 import pedidoService from '../src/services/pedidoService';
+import ConfirmModal from '../components/confirm-modal';
 
 // ── TIPOS Y HELPERS DE NAVEGACIÓN ────────────────────────────────────────────
 // Tipo del contexto del carrito (necesario para que TypeScript reconozca sus propiedades).
@@ -64,6 +65,7 @@ export default function CheckoutScreen() {
   const [notasAdicionales, setNotasAdicionales] = useState('');
   const [submitting, setSubmitting]             = useState(false); // true mientras se procesa el pedido.
   const [errorMessage, setErrorMessage]         = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // ── VALIDACIÓN REACTIVA ───────────────────────────────────────────────────
   // canSubmit se recalcula solo cuando cambian sus dependencias.
@@ -101,8 +103,8 @@ export default function CheckoutScreen() {
   }
 
   // ── FUNCIÓN: handleConfirm ────────────────────────────────────────────────
-  // Valida campos, llama a crearPedido() y redirige a la pantalla de confirmación.
-  const handleConfirm = async () => {
+  // Valida campos y abre el modal de confirmación.
+  const handleConfirm = () => {
     setErrorMessage('');
 
     // Validación en el cliente antes de la petición HTTP.
@@ -115,6 +117,12 @@ export default function CheckoutScreen() {
       return;
     }
 
+    setShowConfirmModal(true);
+  };
+
+  // Realiza el envío del pedido tras confirmar.
+  const confirmPedido = async () => {
+    setShowConfirmModal(false);
     setSubmitting(true); // Bloquea el botón durante la petición.
     try {
       // POST /pedidos — crea el pedido con los datos del formulario.
@@ -230,6 +238,16 @@ export default function CheckoutScreen() {
           </ThemedText>
         </Pressable>
       </ScrollView>
+      <ConfirmModal
+        visible={showConfirmModal}
+        title="Confirmar Pedido"
+        message={`¿Estás seguro de que deseas realizar este pedido por un total de $${Number(total || 0).toLocaleString('es-CO')}?`}
+        icon="cart-outline"
+        confirmText="Confirmar Compra"
+        cancelText="Cancelar"
+        onConfirm={confirmPedido}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

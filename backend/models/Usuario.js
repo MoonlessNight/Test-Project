@@ -56,6 +56,21 @@ const Usuario = sequelize.define('Usuario', {
     }
   },
 
+  // Columna 'apellido' → Apellido del usuario
+  apellido: {
+    type: DataTypes.STRING(100),       // VARCHAR(100) en MySQL → máximo 100 caracteres
+    allowNull: false,                  // Obligatorio
+    validate: {
+      notEmpty: {
+        msg: 'El apellido no puede estar vacío'
+      },
+      len: {
+        args: [2, 100],
+        msg: 'El apellido debe tener entre 2 y 100 caracteres'
+      }
+    }
+  },
+
   // Columna 'email' → Correo electrónico del usuario (identificador de login)
   email: {
     type: DataTypes.STRING(100),       // VARCHAR(100) → máximo 100 caracteres

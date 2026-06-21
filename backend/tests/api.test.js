@@ -22,6 +22,15 @@ describe('🧪 TESTS DE API E-COMMERCE', () => {
 
   // Limpiar usuario de prueba antes de empezar
   beforeAll(async () => {
+    const { sequelize } = require('../config/database');
+    const { initAssociations } = require('../models');
+    const { runSeeders } = require('../seeders/adminSeeder');
+    
+    // Garantizar que las asociaciones y tablas existan antes de consultar
+    initAssociations();
+    await sequelize.sync({ force: false, alter: true });
+    await runSeeders();
+
     const { Usuario } = require('../models');
     await Usuario.destroy({ where: { email: 'test@test.com' } });
   });
@@ -134,8 +143,9 @@ describe('🧪 TESTS DE API E-COMMERCE', () => {
       expect(Array.isArray(response.body.data.categorias)).toBe(true);
       expect(response.body.data.categorias.length).toBeGreaterThan(0);
       
-      // Guardar ID para tests posteriores
-      categoriaId = response.body.data.categorias[0].id;
+      // Guardar ID para tests posteriores (buscar una que esté activa)
+      const categoriaActiva = response.body.data.categorias.find(c => c.activo === true || c.activo === 1 || c.activo === '1');
+      categoriaId = categoriaActiva ? categoriaActiva.id : response.body.data.categorias[0].id;
     });
 
     test('✅ Admin debe crear una categoría', async () => {
@@ -222,6 +232,16 @@ describe('🧪 TESTS DE API E-COMMERCE', () => {
       if (response.body.data.subcategorias.length > 0) {
         subcategoriaId = response.body.data.subcategorias[0].id;
       }
+    });
+
+    test('✅ Admin debe buscar subcategorías', async () => {
+      const response = await request(app)
+        .get('/api/admin/subcategorias?buscar=Test')
+        .set('Authorization', `Bearer ${adminToken}`);
+      
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data.subcategorias)).toBe(true);
     });
 
     test('✅ Admin debe crear una subcategoría', async () => {
@@ -455,6 +475,10 @@ describe('🧪 TESTS DE API E-COMMERCE', () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(Array.isArray(response.body.data.productos)).toBe(true);
+      
+      if (response.body.data.productos.length > 0) {
+        productoId = response.body.data.productos[0].id;
+      }
     });
 
     test('✅ Cliente debe ver un producto específico', async () => {
@@ -626,6 +650,17 @@ describe('🧪 TESTS DE API E-COMMERCE', () => {
     //   
     //   expect(response.status).toBe(200);
     //   expect(response.body.success).toBe(true);      expect(Array.isArray(response.body.data.pedidos)).toBe(true);    // });
+
+    test('✅ Admin debe obtener la lista de usuarios que tienen pedidos registrados', async () => {
+      const response = await request(app)
+        .get('/api/admin/pedidos/usuarios')
+        .set('Authorization', `Bearer ${adminToken}`);
+      
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('usuarios');
+      expect(Array.isArray(response.body.data.usuarios)).toBe(true);
+    });
 
     test('✅ Admin debe obtener un pedido por ID', async () => {
       // Obtener un pedido existente

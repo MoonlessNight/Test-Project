@@ -112,6 +112,19 @@ const Pedido = sequelize.define('Pedido', {
     }
   },
 
+  // Columna 'metodoPago' → Método de pago utilizado
+  metodoPago: {
+    type: DataTypes.ENUM('efectivo', 'tarjeta', 'transferencia'),
+    allowNull: false,
+    defaultValue: 'efectivo',
+    validate: {
+      isIn: {
+        args: [['efectivo', 'tarjeta', 'transferencia']],
+        msg: 'Método de pago inválido'
+      }
+    }
+  },
+
   // Columna 'notas' → Comentarios adicionales del cliente (opcional)
   // Ejemplo: "Entregar después de las 5pm", "Dejar en portería"
   notas: {

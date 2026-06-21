@@ -22,6 +22,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/themed-text';
 import apiClient from '../../src/api/apiClient';
+import ConfirmModal from '../../components/confirm-modal';
 
 type Usuario = {
   id?: string;
@@ -66,6 +67,7 @@ export default function AdminUsuarioForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
 
   const validate = (): boolean => {
     setErrorMsg('');
@@ -89,8 +91,13 @@ export default function AdminUsuarioForm() {
     return true;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!validate()) return;
+    setShowConfirmSubmit(true);
+  };
+
+  const confirmSubmit = async () => {
+    setShowConfirmSubmit(false);
     setLoading(true);
     try {
       if (editing && usuario?.id) {
@@ -100,6 +107,10 @@ export default function AdminUsuarioForm() {
           rol,
           ...(telefono.trim() ? { telefono: telefono.trim() } : {}),
           ...(direccion.trim() ? { direccion: direccion.trim() } : {}),
+        });
+        router.replace({
+          pathname: '/admin/usuarios',
+          params: { toastMessage: 'Usuario actualizado exitosamente', toastType: 'success' }
         });
       } else {
         await apiClient.post('/admin/usuarios', {
@@ -111,8 +122,11 @@ export default function AdminUsuarioForm() {
           ...(telefono.trim() ? { telefono: telefono.trim() } : {}),
           ...(direccion.trim() ? { direccion: direccion.trim() } : {}),
         });
+        router.replace({
+          pathname: '/admin/usuarios',
+          params: { toastMessage: 'Usuario creado exitosamente', toastType: 'success' }
+        });
       }
-      router.back();
     } catch (error) {
       const msg = (error as { response?: { data?: { mensaje?: string } }; message?: string })
         ?.response?.data?.mensaje || (error as Error)?.message || 'No se pudo guardar';
@@ -130,10 +144,7 @@ export default function AdminUsuarioForm() {
 
         {/* ── Encabezado ─────────────────────────────────────── */}
         <View style={s.header}>
-          <Pressable style={s.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#7c6455" />
-          </Pressable>
-          <View style={{ flex: 1 }}>
+          <View style={s.headerText}>
             <ThemedText style={s.title}>{editing ? '✏️ Editar Usuario' : '👤 Nuevo Usuario'}</ThemedText>
             <ThemedText style={s.subtitle}>
               {editing ? `Modificando a ${usuario?.nombre} ${usuario?.apellido}` : 'Completa los campos del formulario'}
@@ -317,6 +328,16 @@ export default function AdminUsuarioForm() {
         </View>
 
       </ScrollView>
+      <ConfirmModal
+        visible={showConfirmSubmit}
+        title={editing ? 'Guardar Cambios' : 'Crear Usuario'}
+        message={editing ? '¿Estás seguro de que deseas guardar los cambios realizados?' : '¿Estás seguro de que deseas crear este nuevo usuario con el rol de ' + selectedRol.label.toLowerCase() + '?'}
+        icon={editing ? 'save-outline' : 'person-add-outline'}
+        confirmText={editing ? 'Guardar' : 'Crear'}
+        cancelText="Cancelar"
+        onConfirm={confirmSubmit}
+        onCancel={() => setShowConfirmSubmit(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -325,10 +346,10 @@ const s = StyleSheet.create({
   container: { backgroundColor: '#fdf8f4', padding: 16, paddingBottom: 48, gap: 4 },
 
   // Header
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e8ddd5', marginTop: 2 },
-  title: { fontSize: 21, fontWeight: '800', color: '#3d2c1e' },
-  subtitle: { fontSize: 12, color: '#9e8879', marginTop: 2 },
+  header: { alignItems: 'center', marginBottom: 16, width: '100%' },
+  headerText: { alignItems: 'center', width: '100%' },
+  title: { fontSize: 21, fontWeight: '800', color: '#3d2c1e', textAlign: 'center' },
+  subtitle: { fontSize: 12, color: '#9e8879', marginTop: 2, textAlign: 'center' },
 
   // Avatar
   avatarSection: { alignItems: 'center', paddingVertical: 20, gap: 6 },

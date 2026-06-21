@@ -17,6 +17,40 @@ import { LogBox } from 'react-native';
 // Ignora el error inofensivo de Keep Awake en emuladores/dispositivos
 LogBox.ignoreLogs(['Unable to activate keep awake']);
 
+// Silencia el error de Keep Awake de forma global en las promesas no capturadas
+if (typeof global !== 'undefined') {
+  if ((global as any).HermesInternal?.enablePromiseRejectionTracker) {
+    (global as any).HermesInternal.enablePromiseRejectionTracker({
+      allRejections: true,
+      onUnhandled: (id: number, rejection: any) => {
+        const msg = rejection?.message || String(rejection);
+        if (msg.includes('keep awake') || msg.includes('Keep Awake') || msg.includes('Unable to activate')) {
+          return; // Ignorar silenciosamente
+        }
+        console.warn(`Unhandled promise rejection (id: ${id}):`, rejection);
+      },
+      onHandled: () => {},
+    });
+  } else {
+    try {
+      const tracking = require('promise/setimmediate/rejection-tracking');
+      tracking.enable({
+        allRejections: true,
+        onUnhandled: (id: number, error: any) => {
+          const msg = error?.message || String(error);
+          if (msg.includes('keep awake') || msg.includes('Keep Awake') || msg.includes('Unable to activate')) {
+            return; // Ignorar silenciosamente
+          }
+          console.warn(`Unhandled promise rejection (id: ${id}):`, error);
+        },
+      });
+    } catch {
+      // Ignorar si el módulo no está disponible
+    }
+  }
+}
+
+
 import { useColorScheme } from '../hooks/use-color-scheme'; // Hook que detecta si el dispositivo está en modo oscuro.
 import { AuthProvider } from '../src/context/AuthContext';   // Proveedor de sesión de usuario (login/logout).
 import { CarritoProvider } from '../src/context/CarritoContext'; // Proveedor del estado global del carrito.

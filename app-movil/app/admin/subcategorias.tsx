@@ -18,6 +18,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '../../components/themed-text';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import ConfirmModal from '../../components/confirm-modal';
 import AdminToast from '../../components/admin-toast';
 import apiClient from '../../src/api/apiClient';
 import { useAuth } from '../../src/context/AuthContext';
@@ -60,18 +63,28 @@ export default function AdminSubcategoriasScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [selected, setSelected] = useState<Subcategoria | null>(null);
+  const [pagina, setPagina] = useState(1);
   const [productosVinculados, setProductosVinculados] = useState<any[]>([]);
   const [loadingProds, setLoadingProds] = useState(false);
 
   // Filtros adicionales
   const [showFiltros, setShowFiltros] = useState(false);
   const [filtroActivo, setFiltroActivo] = useState<'all' | 'true' | 'false'>('all');
+  const [dropdownActivoOpen, setDropdownActivoOpen] = useState(false);
+  const [textoBuscarActivo, setTextoBuscarActivo] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [textoBuscarCategoria, setTextoBuscarCategoria] = useState('');
   const [ordenarPor, setOrdenarPor] = useState<'nombre' | 'reciente' | 'antiguo'>('nombre');
+  const [dropdownOrdenOpen, setDropdownOrdenOpen] = useState(false);
+  const [textoBuscarOrden, setTextoBuscarOrden] = useState('');
 
   const [categorias, setCategorias] = useState<any[]>([]);
 
-  const params = useLocalSearchParams<{ subcategoriaId?: string }>();
+  const params = useLocalSearchParams<{ toastMessage?: string; toastType?: string; subcategoriaId?: string }>();
+
+  const [showConfirmToggle, setShowConfirmToggle] = useState(false);
+  const [toggleSubcategory, setToggleSubcategory] = useState<Subcategoria | null>(null);
 
   const { toast, showToast } = useToast();
 
@@ -148,11 +161,31 @@ export default function AdminSubcategoriasScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (params.toastMessage) {
+        showToast(params.toastMessage, (params.toastType as any) || 'success');
+        router.setParams({ toastMessage: '', toastType: '' });
+      }
+      fetchSubcategorias(busqueda);
+    }, [params.toastMessage, params.toastType])
+  );
+
   useEffect(() => {
+    setPagina(1);
     fetchSubcategorias(busqueda);
   }, [filtroActivo, filtroCategoria, ordenarPor]);
 
-  const handleToggle = async (item: Subcategoria) => {
+  const handleToggle = (item: Subcategoria) => {
+    setToggleSubcategory(item);
+    setShowConfirmToggle(true);
+  };
+
+  const confirmToggle = async () => {
+    if (!toggleSubcategory) return;
+    setShowConfirmToggle(false);
+    const item = toggleSubcategory;
+    setToggleSubcategory(null);
     try {
       await apiClient.put(`/admin/subcategorias/${item.id}`, {
         nombre: item.nombre,
@@ -165,6 +198,44 @@ export default function AdminSubcategoriasScreen() {
     } catch {
       showToast('No se pudo cambiar el estado', 'error');
     }
+  };
+
+  const totalPaginas = Math.ceil(subcategorias.length / 10) || 1;
+  const subcategoriasVisibles = subcategorias.slice((pagina - 1) * 10, pagina * 10);
+
+  const ListFooter = () => {
+    if (loading || subcategorias.length === 0 || totalPaginas <= 1) {
+      return <View style={{ height: 24 }} />;
+    }
+    return (
+      <View style={s.pagBarFooter}>
+        <Pressable
+          style={[s.pagCircleBtn, pagina <= 1 && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.max(1, p - 1))}
+          disabled={pagina <= 1}>
+          <Ionicons name="chevron-back" size={16} color={pagina <= 1 ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+
+        <View style={s.pagDots}>
+          {Array.from({ length: totalPaginas }, (_, i) => (
+            <View
+              key={i}
+              style={[
+                s.pagDot,
+                i + 1 === pagina && s.pagDotActive
+              ]}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          style={[s.pagCircleBtn, pagina >= totalPaginas && s.pagCircleBtnOff]}
+          onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+          disabled={pagina >= totalPaginas}>
+          <Ionicons name="chevron-forward" size={16} color={pagina >= totalPaginas ? '#d0c4bb' : '#d4956a'} />
+        </Pressable>
+      </View>
+    );
   };
 
   return (
@@ -181,7 +252,7 @@ export default function AdminSubcategoriasScreen() {
             placeholder="Buscar subcategoría..."
             placeholderTextColor="#b8a99a"
             value={busqueda}
-            onChangeText={(t) => { setBusqueda(t); fetchSubcategorias(t); }}
+            onChangeText={(t) => { setBusqueda(t); setPagina(1); fetchSubcategorias(t); }}
             style={s.input}
           />
         </View>
@@ -203,73 +274,224 @@ export default function AdminSubcategoriasScreen() {
           {/* Fila: Estado */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Estado</ThemedText>
-            <View style={s.pillRow}>
-              {(['all', 'true', 'false'] as const).map((st) => (
-                <Pressable
-                  key={st}
-                  style={[s.filterPill, filtroActivo === st && s.filterPillActive]}
-                  onPress={() => setFiltroActivo(st)}
-                >
-                  <ThemedText style={[s.filterPillText, filtroActivo === st && s.filterPillTextActive]}>
-                    {st === 'all' ? 'Todos' : st === 'true' ? 'Activos' : 'Inactivos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="toggle-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar estado..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarActivo}
+                  onFocus={() => setDropdownActivoOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarActivo(text);
+                    setDropdownActivoOpen(true);
+                    setFiltroActivo('all');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarActivo.length > 0 || filtroActivo !== 'all' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarActivo('');
+                    setFiltroActivo('all');
+                    setDropdownActivoOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownActivoOpen(!dropdownActivoOpen)}>
+                    <Ionicons name={dropdownActivoOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownActivoOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'all', label: '📋 Todos' },
+                      { key: 'true', label: '🟢 Activos' },
+                      { key: 'false', label: '🔴 Inactivos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarActivo.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = filtroActivo === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setFiltroActivo(item.key as any);
+                              setTextoBuscarActivo(item.label);
+                              setDropdownActivoOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Fila: Ordenamiento */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Ordenar por</ThemedText>
-            <View style={s.pillRow}>
-              {(['nombre', 'reciente', 'antiguo'] as const).map((ord) => (
-                <Pressable
-                  key={ord}
-                  style={[s.filterPill, ordenarPor === ord && s.filterPillActive]}
-                  onPress={() => setOrdenarPor(ord)}
-                >
-                  <ThemedText style={[s.filterPillText, ordenarPor === ord && s.filterPillTextActive]}>
-                    {ord === 'nombre' ? 'Nombre A-Z' : ord === 'reciente' ? 'Más nuevos' : 'Más antiguos'}
-                  </ThemedText>
-                </Pressable>
-              ))}
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="swap-vertical-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar orden..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarOrden}
+                  onFocus={() => setDropdownOrdenOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarOrden(text);
+                    setDropdownOrdenOpen(true);
+                    setOrdenarPor('nombre');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarOrden.length > 0 || ordenarPor !== 'nombre' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarOrden('');
+                    setOrdenarPor('nombre');
+                    setDropdownOrdenOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownOrdenOpen(!dropdownOrdenOpen)}>
+                    <Ionicons name={dropdownOrdenOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+              {dropdownOrdenOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {[
+                      { key: 'nombre', label: '🔤 Nombre A-Z' },
+                      { key: 'reciente', label: '🕓 Más nuevos' },
+                      { key: 'antiguo', label: '📅 Más antiguos' }
+                    ]
+                      .filter(item => item.label.toLowerCase().includes(textoBuscarOrden.toLowerCase()))
+                      .map((item) => {
+                        const isSelected = ordenarPor === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setOrdenarPor(item.key as any);
+                              setTextoBuscarOrden(item.label);
+                              setDropdownOrdenOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              {item.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Fila: Categoría */}
           <View style={s.filterGroup}>
             <ThemedText style={s.filterLabel}>Categoría</ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.scrollPillRow}>
-              <Pressable
-                style={[s.filterPill, !filtroCategoria && s.filterPillActive]}
-                onPress={() => setFiltroCategoria('')}
-              >
-                <ThemedText style={[s.filterPillText, !filtroCategoria && s.filterPillTextActive]}>
-                  Todas
-                </ThemedText>
-              </Pressable>
-              {categorias.map((cat) => (
-                <Pressable
-                  key={String(cat.id)}
-                  style={[s.filterPill, filtroCategoria === String(cat.id) && s.filterPillActive]}
-                  onPress={() => setFiltroCategoria(String(cat.id))}
-                >
-                  <ThemedText style={[s.filterPillText, filtroCategoria === String(cat.id) && s.filterPillTextActive]}>
-                    {cat.nombre}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <View style={s.dropdownContainer}>
+              <View style={s.filterSearchBox}>
+                <Ionicons name="folder-open-outline" size={14} color="#d4956a" />
+                <TextInput
+                  placeholder="Buscar y seleccionar categoría..."
+                  placeholderTextColor="#b8a99a"
+                  value={textoBuscarCategoria}
+                  onFocus={() => setDropdownOpen(true)}
+                  onChangeText={(text) => {
+                    setTextoBuscarCategoria(text);
+                    setDropdownOpen(true);
+                    setFiltroCategoria('');
+                  }}
+                  style={s.filterSearchInput}
+                />
+                {textoBuscarCategoria.length > 0 || filtroCategoria !== '' ? (
+                  <Pressable onPress={() => {
+                    setTextoBuscarCategoria('');
+                    setFiltroCategoria('');
+                    setDropdownOpen(false);
+                  }}>
+                    <Ionicons name="close-circle" size={16} color="#b8a99a" />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => setDropdownOpen(!dropdownOpen)}>
+                    <Ionicons name={dropdownOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#b8a99a" />
+                  </Pressable>
+                )}
+              </View>
+
+              {dropdownOpen && (
+                <View style={s.dropdownList}>
+                  <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    <Pressable
+                      style={[s.dropdownItem, !filtroCategoria && s.dropdownItemActive]}
+                      onPress={() => {
+                        setFiltroCategoria('');
+                        setTextoBuscarCategoria('');
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      <ThemedText style={[s.dropdownItemText, !filtroCategoria && s.dropdownItemTextActive]}>
+                        📁 Todas las categorías
+                      </ThemedText>
+                    </Pressable>
+
+                    {categorias
+                      .filter((cat) => {
+                        return (cat.nombre || '').toLowerCase().includes(textoBuscarCategoria.toLowerCase());
+                      })
+                      .map((cat) => {
+                        const isSelected = filtroCategoria === String(cat.id);
+                        return (
+                          <Pressable
+                            key={String(cat.id)}
+                            style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                            onPress={() => {
+                              setFiltroCategoria(String(cat.id));
+                              setTextoBuscarCategoria(cat.nombre || '');
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[s.dropdownItemText, isSelected && s.dropdownItemTextActive]}>
+                              📁 {cat.nombre}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Botón limpiar */}
-          {(!!filtroCategoria || filtroActivo !== 'all' || ordenarPor !== 'nombre') && (
+          {(!!filtroCategoria || filtroActivo !== 'all' || ordenarPor !== 'nombre' || textoBuscarCategoria !== '' || textoBuscarActivo !== '' || textoBuscarOrden !== '') && (
             <Pressable
               style={s.clearFiltersBtn}
               onPress={() => {
                 setFiltroCategoria('');
                 setFiltroActivo('all');
                 setOrdenarPor('nombre');
+                setTextoBuscarCategoria('');
+                setTextoBuscarActivo('');
+                setTextoBuscarOrden('');
+                setDropdownOpen(false);
+                setDropdownActivoOpen(false);
+                setDropdownOrdenOpen(false);
               }}
             >
               <Ionicons name="trash-outline" size={14} color="#c0392b" />
@@ -283,12 +505,12 @@ export default function AdminSubcategoriasScreen() {
       {!!errorMessage && <ThemedText style={s.error}>{errorMessage}</ThemedText>}
 
       <FlatList
-        data={subcategorias}
+        data={subcategoriasVisibles}
         keyExtractor={(item) => String(item.id)}
         style={s.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchSubcategorias(busqueda, true)} colors={['#d4956a']} tintColor="#d4956a" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setPagina(1); fetchSubcategorias(busqueda, true); }} colors={['#d4956a']} tintColor="#d4956a" />
         }
         renderItem={({ item }) => (
           <Pressable style={s.card} onPress={() => setSelected(item)}>
@@ -323,6 +545,7 @@ export default function AdminSubcategoriasScreen() {
             <ThemedText style={s.emptyText}>No hay subcategorías aún</ThemedText>
           </View>
         ) : null}
+        ListFooterComponent={<ListFooter />}
       />
 
       {/* Modal detalle */}
@@ -414,6 +637,20 @@ export default function AdminSubcategoriasScreen() {
       </Modal>
 
       <AdminToast message={toast.message} type={toast.type} visible={toast.visible} />
+      <ConfirmModal
+        visible={showConfirmToggle}
+        title={toggleSubcategory?.activo ? 'Desactivar Subcategoría' : 'Activar Subcategoría'}
+        message={`¿Estás seguro de que deseas ${toggleSubcategory?.activo ? 'desactivar' : 'activar'} la subcategoría "${toggleSubcategory?.nombre}"?`}
+        icon={toggleSubcategory?.activo ? 'eye-off-outline' : 'eye-outline'}
+        confirmText={toggleSubcategory?.activo ? 'Desactivar' : 'Activar'}
+        cancelText="Cancelar"
+        isDestructive={toggleSubcategory?.activo}
+        onConfirm={confirmToggle}
+        onCancel={() => {
+          setShowConfirmToggle(false);
+          setToggleSubcategory(null);
+        }}
+      />
     </View>
   );
 }
@@ -499,4 +736,57 @@ const s = StyleSheet.create({
   filterPillTextActive: { color: '#d4956a', fontWeight: '700' },
   clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0ede8', marginTop: 4 },
   clearFiltersText: { fontSize: 12, fontWeight: '700', color: '#c0392b' },
+  filterSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf8f4', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', paddingHorizontal: 10, height: 38, gap: 6, marginBottom: 4 },
+  filterSearchInput: { flex: 1, fontSize: 13, color: '#3d2c1e', padding: 0 },
+  dropdownContainer: { position: 'relative', zIndex: 10, width: '100%' },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8ddd5', marginTop: 4, shadowColor: '#c4a882', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4, overflow: 'hidden' },
+  dropdownItem: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fdf8f4' },
+  dropdownItemActive: { backgroundColor: '#fff3e6' },
+  dropdownItemText: { fontSize: 13, color: '#3d2c1e', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
+
+  // Paginación minimalista en footer
+  pagBarFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  pagCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  pagCircleBtnOff: {
+    backgroundColor: '#f5f0ec',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pagDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e8ddd5',
+  },
+  pagDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#d4956a',
+  },
 });

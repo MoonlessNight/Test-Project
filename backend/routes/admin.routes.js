@@ -249,6 +249,9 @@ router.delete('/usuarios/:id', soloAdministrador, usuarioController.eliminarUsua
 // Controlador: getEstadisticasPedidos → cuenta pedidos por estado, calcula totales de ventas
 router.get('/pedidos/estadisticas', pedidoController.getEstadisticasPedidos);
 
+// GET /api/admin/pedidos/usuarios → Obtiene todos los usuarios que tienen al menos un pedido
+router.get('/pedidos/usuarios', pedidoController.getUsuariosConPedidos);
+
 // GET /api/admin/pedidos → Obtiene TODOS los pedidos del sistema (de todos los usuarios)
 // Query params: ?estado=pendiente&usuarioId=1&pagina=1&limite=20
 // Controlador: getAllPedidos → incluye datos del usuario y detalles del pedido

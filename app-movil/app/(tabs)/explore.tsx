@@ -28,6 +28,7 @@ import { useAuth } from '../../src/context/AuthContext';
 //themedText : texto q aplica colores del tema del dispositivo de manera automatica claro u oscuro
 import { ThemedText } from "../../components/themed-text";
 import ConfirmModal from '../../components/confirm-modal';
+import AdminToast from '../../components/admin-toast';
 import { ThemedView } from "../../components/themed-view";
 
 /**
@@ -86,7 +87,10 @@ export default function TabTwoScreen() {
     const [editMode, setEditMode] = useState(false);
     //campos editables del perfil
     const [editNombre, setEditNombre] = useState('');
+    const [editApellido, setEditApellido] = useState('');
     const [editEmail, setEditEmail] = useState('');
+    const [editTelefono, setEditTelefono] = useState('');
+    const [editDireccion, setEditDireccion] = useState('');
     const [editPassword, setEditPassword] = useState('');
     //saving perfil true mientras se guarda el perfil en backend
     const [savingPerfil, setSavingPerfil] = useState(false);
@@ -94,12 +98,25 @@ export default function TabTwoScreen() {
     const [perfilError, setPerfilError] = useState('');
     const [perfilSuccess, setPerfilSuccess] = useState('');
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
+    useEffect(() => {
+        if (perfilSuccess) {
+            const timer = setTimeout(() => {
+                setPerfilSuccess('');
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [perfilSuccess]);
 
     // Sincronizar datos del perfil al cargar o cambiar el modo de edición
     useEffect(() => {
         if (user) {
             setEditNombre(user.nombre || '');
+            setEditApellido((user as any).apellido || '');
             setEditEmail(user.email || '');
+            setEditTelefono((user as any).telefono || '');
+            setEditDireccion((user as any).direccion || '');
         }
     }, [user, editMode]);
 
@@ -212,25 +229,60 @@ export default function TabTwoScreen() {
         setPerfilSuccess('');
         
         const nombreCambiado = editNombre.trim() !== (user?.nombre || '');
+        const apellidoCambiado = editApellido.trim() !== ((user as any)?.apellido || '');
+        const emailCambiado = editEmail.trim() !== (user?.email || '');
+        const telefonoCambiado = editTelefono.trim() !== ((user as any)?.telefono || '');
+        const direccionCambiado = editDireccion.trim() !== ((user as any)?.direccion || '');
         const passwordCambiado = editPassword.trim().length > 0;
 
-        if (!nombreCambiado && !passwordCambiado) {
+        if (!nombreCambiado && !apellidoCambiado && !emailCambiado && !telefonoCambiado && !direccionCambiado && !passwordCambiado) {
             setPerfilError('Modifica al menos un campo para guardar');
             return;
         }
 
+        // Validación simple de teléfono (si se ingresa)
+        if (editTelefono && !/^3\d{9}$/.test(editTelefono)) {
+            setPerfilError('Teléfono inválido: debe tener 10 dígitos iniciando con 3');
+            return;
+        }
+
+        // Validación simple de email (si cambia)
+        if (emailCambiado) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(editEmail.trim())) {
+                setPerfilError('Formato de email inválido');
+                return;
+            }
+        }
+
+        setShowSaveConfirm(true);
+    };
+
+    const confirmGuardarPerfil = async () => {
+        setShowSaveConfirm(false);
         setSavingPerfil(true);
         try {
-            const data: { nombre?: string; password?: string } = {};
+            const nombreCambiado = editNombre.trim() !== (user?.nombre || '');
+            const apellidoCambiado = editApellido.trim() !== ((user as any)?.apellido || '');
+            const emailCambiado = editEmail.trim() !== (user?.email || '');
+            const telefonoCambiado = editTelefono.trim() !== ((user as any)?.telefono || '');
+            const direccionCambiado = editDireccion.trim() !== ((user as any)?.direccion || '');
+            const passwordCambiado = editPassword.trim().length > 0;
+
+            const data: { nombre?: string; apellido?: string; email?: string; telefono?: string; direccion?: string; password?: string } = {};
             if (nombreCambiado) data.nombre = editNombre.trim();
+            if (apellidoCambiado) data.apellido = editApellido.trim();
+            if (emailCambiado) data.email = editEmail.trim();
+            if (telefonoCambiado) data.telefono = editTelefono.trim();
+            if (direccionCambiado) data.direccion = editDireccion.trim();
             if (passwordCambiado) data.password = editPassword.trim();
 
             await updatePerfil(data);
-            setPerfilSuccess('perfil actualizado correctamente');
+            setPerfilSuccess('Perfil actualizado correctamente');
             setEditMode(false);
             setEditPassword('');
         } catch (error: unknown) {
-            setPerfilError((error as { message?: string })?.message || 'no fue posible actualizar el perfil');
+            setPerfilError((error as { message?: string })?.message || 'No fue posible actualizar el perfil');
         } finally {
             setSavingPerfil(false);
         }
@@ -405,34 +457,28 @@ export default function TabTwoScreen() {
 
   // ── MODO: AUTENTICADO → VISTA DE PERFIL ─────────────────────────────────
   return (
-    <ScrollView 
-      style={styles.scroll} 
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.profileContainer}>
-        {/* ── ENCABEZADO DE PERFIL CENTRADO ── */}
-        <View style={styles.profileCard}>
-          {/* Avatar: círculo con el ícono del rol con un fondo translúcido y elegante */}
-          <View style={[styles.avatarCircle, { backgroundColor: rolColor(user?.rol) + '12', borderColor: rolColor(user?.rol) + '30', borderWidth: 1 }]}>
-            <Ionicons name={rolIcon(user?.rol)} size={32} color={rolColor(user?.rol)} />
+    <View style={{ flex: 1 }}>
+      <AdminToast message={perfilSuccess} visible={!!perfilSuccess} type="success" />
+      <ScrollView 
+        style={styles.scroll} 
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.profileContainer}>
+          {/* ── ENCABEZADO DE PERFIL CENTRADO ── */}
+          <View style={styles.profileCard}>
+            {/* Avatar: círculo con el ícono del rol con un fondo translúcido y elegante */}
+            <View style={[styles.avatarCircle, { backgroundColor: rolColor(user?.rol) + '12', borderColor: rolColor(user?.rol) + '30', borderWidth: 1 }]}>
+              <Ionicons name={rolIcon(user?.rol)} size={32} color={rolColor(user?.rol)} />
+            </View>
+            <Text style={styles.profileName}>{user?.nombre || 'Usuario'} {(user as any)?.apellido || ''}</Text>
+            <Text style={styles.profileEmail}>{user?.email || '-'}</Text>
+            
+            <View style={[styles.roleBadge, { backgroundColor: rolColor(user?.rol) + '15' }]}>
+              <Ionicons name={rolIcon(user?.rol)} size={12} color={rolColor(user?.rol)} />
+              <Text style={[styles.roleBadgeText, { color: rolColor(user?.rol) }]}>{rolLabel(user?.rol)}</Text>
+            </View>
           </View>
-          <Text style={styles.profileName}>{user?.nombre || 'Usuario'}</Text>
-          <Text style={styles.profileEmail}>{user?.email || '-'}</Text>
-          
-          <View style={[styles.roleBadge, { backgroundColor: rolColor(user?.rol) + '15' }]}>
-            <Ionicons name={rolIcon(user?.rol)} size={12} color={rolColor(user?.rol)} />
-            <Text style={[styles.roleBadgeText, { color: rolColor(user?.rol) }]}>{rolLabel(user?.rol)}</Text>
-          </View>
-        </View>
-
-        {/* ── BANNER DE ÉXITO ── */}
-        {perfilSuccess ? (
-          <View style={styles.successBanner}>
-            <Ionicons name="checkmark-circle" size={16} color="#2d6a4f" />
-            <Text style={styles.successText}>{perfilSuccess}</Text>
-          </View>
-        ) : null}
 
         {/* ── SECCIÓN DE ACCIONES (MENÚ UNIFICADO) ── */}
         <View style={styles.menuContainer}>
@@ -508,21 +554,43 @@ export default function TabTwoScreen() {
             </View>
             
             <TextInput
-              placeholder={`Nombre: ${user?.nombre || ''}`}
+              placeholder="Nombre"
               placeholderTextColor="#b8a99a"
               value={editNombre}
               onChangeText={setEditNombre}
               style={styles.input}
             />
             <TextInput
-              placeholder={`Email: ${user?.email || ''}`}
+              placeholder="Apellido"
+              placeholderTextColor="#b8a99a"
+              value={editApellido}
+              onChangeText={setEditApellido}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Correo"
               placeholderTextColor="#b8a99a"
               value={editEmail}
               onChangeText={setEditEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               style={styles.input}
-              editable={false}
+            />
+            <TextInput
+              placeholder="Teléfono (ej: 3001234567)"
+              placeholderTextColor="#b8a99a"
+              value={editTelefono}
+              onChangeText={setEditTelefono}
+              keyboardType="phone-pad"
+              maxLength={10}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Dirección"
+              placeholderTextColor="#b8a99a"
+              value={editDireccion}
+              onChangeText={setEditDireccion}
+              style={styles.input}
             />
             <View style={styles.passwordContainer}>
               <TextInput
@@ -568,7 +636,19 @@ export default function TabTwoScreen() {
         onConfirm={confirmLogout}
         onCancel={() => setShowLogoutConfirm(false)}
       />
-    </ScrollView>
+      <ConfirmModal
+        visible={showSaveConfirm}
+        title="Guardar Cambios"
+        message="¿Estás seguro de que deseas guardar los cambios realizados en tu perfil?"
+        icon="save-outline"
+        iconColor="#d4956a"
+        confirmText="Guardar"
+        cancelText="Cancelar"
+        onConfirm={confirmGuardarPerfil}
+        onCancel={() => setShowSaveConfirm(false)}
+      />
+      </ScrollView>
+    </View>
   );
 }
 

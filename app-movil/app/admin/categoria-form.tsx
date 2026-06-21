@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/themed-text';
 import apiClient from '../../src/api/apiClient';
+import ConfirmModal from '../../components/confirm-modal';
 
 type Categoria = {
   id?: string | number;
@@ -43,13 +44,18 @@ export default function AdminCategoriaForm() {
   const [nombre, setNombre] = useState(categoria?.nombre ?? '');
   const [descripcion, setDescripcion] = useState(categoria?.descripcion ?? '');
   const [loading, setLoading] = useState(false);
+  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!nombre.trim()) {
       Alert.alert('Error', 'El nombre de la categoría es obligatorio');
       return;
     }
+    setShowConfirmSubmit(true);
+  };
 
+  const confirmSubmit = async () => {
+    setShowConfirmSubmit(false);
     setLoading(true);
     try {
       if (editing && categoria?.id) {
@@ -57,13 +63,20 @@ export default function AdminCategoriaForm() {
           nombre: nombre.trim(),
           descripcion: descripcion.trim() || null,
         });
+        router.replace({
+          pathname: '/admin/categorias',
+          params: { toastMessage: 'Categoría actualizada exitosamente', toastType: 'success' }
+        });
       } else {
         await apiClient.post('/admin/categorias', {
           nombre: nombre.trim(),
           descripcion: descripcion.trim() || null,
         });
+        router.replace({
+          pathname: '/admin/categorias',
+          params: { toastMessage: 'Categoría creada exitosamente', toastType: 'success' }
+        });
       }
-      router.back();
     } catch (error) {
       const errorMsg = (error as Error)?.message || 'No se pudo guardar la categoría';
       Alert.alert('Error', errorMsg);
@@ -73,12 +86,10 @@ export default function AdminCategoriaForm() {
   };
 
   return (
-    <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
+    <>
+      <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
       {/* Encabezado */}
       <View style={s.header}>
-        <Pressable style={s.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#7c6455" />
-        </Pressable>
         <View style={s.headerText}>
           <ThemedText style={s.title}>{editing ? 'Editar Categoría' : 'Nueva Categoría'}</ThemedText>
           <ThemedText style={s.subtitle}>
@@ -137,17 +148,27 @@ export default function AdminCategoriaForm() {
           )}
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+      <ConfirmModal
+        visible={showConfirmSubmit}
+        title={editing ? 'Guardar Cambios' : 'Crear Categoría'}
+        message={editing ? '¿Estás seguro de que deseas guardar los cambios realizados?' : '¿Estás seguro de que deseas crear esta nueva categoría?'}
+        icon={editing ? 'save-outline' : 'add-circle-outline'}
+        confirmText={editing ? 'Guardar' : 'Crear'}
+        cancelText="Cancelar"
+        onConfirm={confirmSubmit}
+        onCancel={() => setShowConfirmSubmit(false)}
+      />
+    </>
   );
 }
 
 const s = StyleSheet.create({
   container: { padding: 20, backgroundColor: '#fdf8f4', flexGrow: 1, gap: 4, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e8ddd5' },
-  headerText: { flex: 1 },
-  title: { fontSize: 20, fontWeight: '800', color: '#3d2c1e' },
-  subtitle: { fontSize: 12, color: '#9e8879' },
+  header: { alignItems: 'center', marginBottom: 16, width: '100%' },
+  headerText: { alignItems: 'center', width: '100%' },
+  title: { fontSize: 20, fontWeight: '800', color: '#3d2c1e', textAlign: 'center' },
+  subtitle: { fontSize: 12, color: '#9e8879', textAlign: 'center' },
   iconWrap: { alignSelf: 'center', marginBottom: 8 },
   icon: { fontSize: 48 },
   label: { fontSize: 13, fontWeight: '700', color: '#7c6455', marginTop: 12, marginBottom: 6 },
