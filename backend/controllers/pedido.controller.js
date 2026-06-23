@@ -566,7 +566,7 @@ const actualizarEstadoPedido = async (req, res) => {
     const { estado } = req.body;      // Nuevo estado desde el body JSON
     
     // Valida que el estado sea uno de los permitidos
-    const estadosValidos = ['pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
+    const estadosValidos = ['pendiente', 'pagado', 'en_proceso', 'procesando', 'enviado', 'entregado', 'cancelado'];
     if (!estadosValidos.includes(estado)) {
       return res.status(400).json({
         success: false,

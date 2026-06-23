@@ -77,10 +77,10 @@ const Barcode = () => {
   );
 };
 
-// Colores por estado del pedido
 const ESTADO_STYLE: Record<string, { bg: string; text: string; emoji: string }> = {
   pendiente:  { bg: '#fff3cd', text: '#856404', emoji: '⏳' },
   procesando: { bg: '#d1ecf1', text: '#0c5460', emoji: '⚙️' },
+  en_proceso: { bg: '#d1ecf1', text: '#0c5460', emoji: '⚙️' },
   enviado:    { bg: '#cce5ff', text: '#004085', emoji: '🚚' },
   entregado:  { bg: '#d8f3dc', text: '#2d6a4f', emoji: '✅' },
   cancelado:  { bg: '#fde8e8', text: '#c0392b', emoji: '❌' },

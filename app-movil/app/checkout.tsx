@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── IMPORTACIONES ────────────────────────────────────────────────────────────
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   KeyboardAvoidingView, // Evita que el teclado tape los campos en iOS.
   Platform,             // Detecta si es iOS o Android para aplicar el comportamiento correcto.
@@ -18,8 +18,11 @@ import {
   StyleSheet,
   TextInput,            // Campo de texto editable.
   View,
+  Text,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router'; // Navegación programática.
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
@@ -29,33 +32,22 @@ import pedidoService from '../src/services/pedidoService';
 import ConfirmModal from '../components/confirm-modal';
 
 // ── TIPOS Y HELPERS DE NAVEGACIÓN ────────────────────────────────────────────
-// Tipo del contexto del carrito (necesario para que TypeScript reconozca sus propiedades).
 type CarritoCtx = { items: unknown[]; total: number; loading: boolean; refreshCarrito: () => Promise<void> };
 
-// router.replace tiene tipos estrictos en Expo Router; el cast permite pasar strings dinámicos.
 const routerReplace = (path: string) => (router as unknown as { replace: (p: string) => void }).replace(path);
 
-const BRAND_GOLD = '#c7984e';
-const BRAND_GOLD_DARK = '#8a662d';
-const BRAND_NAVY = '#192847';
-const BRAND_BLUE = '#DBE1ED';
-const BRAND_GOLD_BG = '#fff6e3';
-
 // ── MÉTODOS DE PAGO ───────────────────────────────────────────────────────────
-// Arreglo de opciones para los chips de método de pago.
-// 'key' es el valor enviado al servidor; 'label' es lo que se muestra al usuario.
 const PAYMENT_METHODS = [
-  { key: 'efectivo',       label: 'Efectivo' },
-  { key: 'tarjeta',        label: 'Tarjeta' },
-  { key: 'transferencia',  label: 'Transferencia' },
+  { key: 'efectivo',       label: '💰 Efectivo' },
+  { key: 'tarjeta',        label: '💳 Tarjeta' },
+  { key: 'transferencia',  label: '📱 Transferencia' },
 ];
 
 // ── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 export default function CheckoutScreen() {
 
   // ── CONTEXTOS ─────────────────────────────────────────────────────────────
-  const { isAuthenticated } = useAuth();
-  // El cast a CarritoCtx es necesario porque useCarrito devuelve 'unknown' en TypeScript.
+  const { isAuthenticated, user } = useAuth() as any;
   const { items, total, loading, refreshCarrito } = useCarrito() as CarritoCtx;
 
   // ── ESTADO LOCAL (campos del formulario) ──────────────────────────────────
@@ -67,65 +59,73 @@ export default function CheckoutScreen() {
   const [errorMessage, setErrorMessage]         = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  // ── AUTOCOMPLETADO DESDE PERFIL ───────────────────────────────────────────
+  useEffect(() => {
+    if (user) {
+      setDireccionEnvio((prev) => prev || user.direccion || '');
+      setTelefono((prev) => prev || user.telefono || '');
+    }
+  }, [user]);
+
   // ── VALIDACIÓN REACTIVA ───────────────────────────────────────────────────
-  // canSubmit se recalcula solo cuando cambian sus dependencias.
-  // El botón "Confirmar pedido" se deshabilita si alguna condición falla.
   const canSubmit = useMemo(() => {
     return direccionEnvio.trim() && telefono.trim() && items.length > 0 && !submitting;
   }, [direccionEnvio, telefono, items.length, submitting]);
 
   // ── GUARDIA: usuario no autenticado ───────────────────────────────────────
-  // Si el usuario no tiene sesión activa, se muestra una pantalla de bloqueo.
   if (!isAuthenticated) {
     return (
       <View style={styles.centered}>
-        <ThemedText type="title">Debes iniciar sesion</ThemedText>
-        <ThemedText style={styles.subtitle}>Para finalizar la compra entra en tu cuenta.</ThemedText>
+        <Ionicons name="lock-closed-outline" size={64} color="#d4956a" />
+        <Text style={styles.title}>Debes iniciar sesión</Text>
+        <Text style={styles.subtitle}>Inicia sesión para finalizar tu compra.</Text>
         <Pressable style={styles.primaryButton} onPress={() => routerReplace('/(tabs)/explore')}>
-          <ThemedText style={styles.primaryButtonText}>Ir a Cuenta</ThemedText>
+          <Text style={styles.primaryButtonText}>Ir a Cuenta</Text>
         </Pressable>
       </View>
     );
   }
 
   // ── GUARDIA: carrito vacío ─────────────────────────────────────────────────
-  // Solo se muestra cuando la carga terminó (!loading) y no hay productos.
   if (!loading && items.length === 0) {
     return (
       <View style={styles.centered}>
-        <ThemedText type="title">Carrito vacio</ThemedText>
-        <ThemedText style={styles.subtitle}>Agrega productos antes de continuar.</ThemedText>
+        <Ionicons name="cart-outline" size={64} color="#d4956a" />
+        <Text style={styles.title}>Carrito vacío</Text>
+        <Text style={styles.subtitle}>Agrega productos al carrito antes de continuar.</Text>
         <Pressable style={styles.primaryButton} onPress={() => routerReplace('/(tabs)/')}>
-          <ThemedText style={styles.primaryButtonText}>Volver a Tienda</ThemedText>
+          <Text style={styles.primaryButtonText}>Volver a Tienda</Text>
         </Pressable>
       </View>
     );
   }
 
   // ── FUNCIÓN: handleConfirm ────────────────────────────────────────────────
-  // Valida campos y abre el modal de confirmación.
   const handleConfirm = () => {
     setErrorMessage('');
 
-    // Validación en el cliente antes de la petición HTTP.
     if (!direccionEnvio.trim()) {
-      setErrorMessage('Ingresa la direccion de envio.');
+      setErrorMessage('Ingresa la dirección de envío.');
       return;
     }
     if (!telefono.trim()) {
-      setErrorMessage('Ingresa un telefono de contacto.');
+      setErrorMessage('Ingresa un teléfono de contacto.');
+      return;
+    }
+
+    const phoneRegex = /^3\d{9}$/;
+    if (!phoneRegex.test(telefono.trim())) {
+      setErrorMessage('El teléfono debe ser un número celular de 10 dígitos (ej. 3001234567).');
       return;
     }
 
     setShowConfirmModal(true);
   };
 
-  // Realiza el envío del pedido tras confirmar.
   const confirmPedido = async () => {
     setShowConfirmModal(false);
-    setSubmitting(true); // Bloquea el botón durante la petición.
+    setSubmitting(true);
     try {
-      // POST /pedidos — crea el pedido con los datos del formulario.
       const pedido = await pedidoService.crearPedido({
         direccionEnvio:    direccionEnvio.trim(),
         telefono:          telefono.trim(),
@@ -133,117 +133,125 @@ export default function CheckoutScreen() {
         notasAdicionales:  notasAdicionales.trim(),
       });
 
-      // Actualiza el carrito local (se vacía después de crear el pedido).
       await refreshCarrito();
-
       const pedidoId = pedido?.id;
 
-      // Si el servidor devuelve el ID, lo pasa como query param para mostrar detalles.
       if (pedidoId) {
         routerReplace(`/pedido-confirmado?pedidoId=${pedidoId}`);
       } else {
-        routerReplace('/pedido-confirmado'); // Fallback sin ID (muestra pantalla genérica).
+        routerReplace('/pedido-confirmado');
       }
     } catch (error: unknown) {
       setErrorMessage((error as { message?: string })?.message || 'No fue posible confirmar el pedido.');
     } finally {
-      setSubmitting(false); // Re-habilita el botón siempre.
+      setSubmitting(false);
     }
   };
 
   // ── RENDERIZADO ───────────────────────────────────────────────────────────
   return (
-    // KeyboardAvoidingView: en iOS sube la vista cuando el teclado aparece.
-    // En Android el sistema lo maneja solo (undefined).
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">Checkout</ThemedText>
-        <ThemedText style={styles.subtitle}>Completa los datos para confirmar tu pedido.</ThemedText>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Finalizar Compra</Text>
+          <Text style={styles.subtitle}>Completa los datos para confirmar tu pedido.</Text>
+        </View>
 
-        {/* Muestra el error si existe */}
-        {errorMessage ? <ThemedText style={styles.error}>{errorMessage}</ThemedText> : null}
+        {errorMessage ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={15} color="#e07070" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
 
         {/* ── SECCIÓN: datos de envío ──────────────────────────────────── */}
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold">Direccion de envio</ThemedText>
+        <View style={styles.section}>
+          <Text style={styles.label}>Dirección de envío *</Text>
           <TextInput
             value={direccionEnvio}
             onChangeText={setDireccionEnvio}
             placeholder="Ej: Calle 10 # 20-30, Bucaramanga"
-            placeholderTextColor={BRAND_GOLD_DARK}
+            placeholderTextColor="#b8a99a"
             style={[styles.input, styles.multiline]}
-            multiline // Permite varias líneas para direcciones largas.
+            multiline
           />
 
-          <ThemedText type="defaultSemiBold">Telefono</ThemedText>
+          <Text style={styles.label}>Teléfono de contacto *</Text>
           <TextInput
             value={telefono}
             onChangeText={setTelefono}
             placeholder="3001234567"
-            placeholderTextColor={BRAND_GOLD_DARK}
-            keyboardType="phone-pad" // Teclado numérico con #, *.
+            placeholderTextColor="#b8a99a"
+            keyboardType="phone-pad"
+            maxLength={10}
             style={styles.input}
           />
 
           {/* ── Chips de método de pago ──────────────────────────────── */}
-          <ThemedText type="defaultSemiBold">Metodo de pago</ThemedText>
+          <Text style={styles.label}>Método de pago *</Text>
           <View style={styles.paymentRow}>
             {PAYMENT_METHODS.map((method) => {
-              const selected = method.key === metodoPago; // true si este chip está seleccionado.
+              const selected = method.key === metodoPago;
               return (
                 <Pressable
                   key={method.key}
-                  onPress={() => setMetodoPago(method.key)} // Cambia el método seleccionado.
+                  onPress={() => setMetodoPago(method.key)}
                   style={[
                     styles.paymentChip,
-                    selected && styles.paymentChipSelected, // Resalta el chip activo.
+                    selected && styles.paymentChipSelected,
                   ]}>
-                  <ThemedText style={selected ? styles.paymentChipTextSelected : undefined}>
+                  <Text style={[styles.paymentChipText, selected && styles.paymentChipTextSelected]}>
                     {method.label}
-                  </ThemedText>
+                  </Text>
                 </Pressable>
               );
             })}
           </View>
 
-          <ThemedText type="defaultSemiBold">Notas (opcional)</ThemedText>
+          <Text style={styles.label}>Notas adicionales (opcional)</Text>
           <TextInput
             value={notasAdicionales}
             onChangeText={setNotasAdicionales}
-            placeholder="Indicaciones de entrega"
-            placeholderTextColor={BRAND_GOLD_DARK}
+            placeholder="Indicaciones para la entrega (ej: torre, apartamento)"
+            placeholderTextColor="#b8a99a"
             style={[styles.input, styles.multiline]}
             multiline
           />
-        </ThemedView>
+        </View>
 
         {/* ── RESUMEN DEL PEDIDO ───────────────────────────────────────── */}
-        <ThemedView style={styles.summary}>
-          <ThemedText type="defaultSemiBold">Resumen</ThemedText>
-          <ThemedText>{items.length} producto(s)</ThemedText>
-          {/* Formatea el total en pesos colombianos. */}
-          <ThemedText style={styles.total}>Total: ${Number(total || 0).toLocaleString('es-CO')}</ThemedText>
-        </ThemedView>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Resumen del pedido</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryText}>{items.length} producto(s) en total</Text>
+            <Text style={styles.summaryTotal}>${Number(total || 0).toLocaleString('es-CO')}</Text>
+          </View>
+        </View>
 
         {/* ── BOTÓN CONFIRMAR ──────────────────────────────────────────── */}
-        {/* Se deshabilita (y opaca) cuando canSubmit=false o mientras se procesa. */}
         <Pressable
-          style={[styles.primaryButton, !canSubmit && styles.primaryButtonDisabled]}
+          style={[styles.confirmBtn, !canSubmit && styles.confirmBtnDisabled]}
           onPress={handleConfirm}
           disabled={!canSubmit}>
-          <ThemedText style={styles.primaryButtonText}>
-            {submitting ? 'Procesando...' : 'Confirmar pedido'}
-          </ThemedText>
+          {submitting ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+              <Text style={styles.confirmBtnText}>Confirmar Pedido</Text>
+            </>
+          )}
         </Pressable>
       </ScrollView>
+      
       <ConfirmModal
         visible={showConfirmModal}
-        title="Confirmar Pedido"
+        title="Confirmar Compra"
         message={`¿Estás seguro de que deseas realizar este pedido por un total de $${Number(total || 0).toLocaleString('es-CO')}?`}
         icon="cart-outline"
-        confirmText="Confirmar Compra"
+        confirmText="Confirmar"
         cancelText="Cancelar"
         onConfirm={confirmPedido}
         onCancel={() => setShowConfirmModal(false)}
@@ -254,60 +262,39 @@ export default function CheckoutScreen() {
 
 // ── ESTILOS ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 16, gap: 12 },
-  // Centra el contenido cuando se muestra una pantalla de guardia.
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16 },
-  subtitle: { color: BRAND_NAVY },
-  // Tarjeta de sección con fondo temático y padding interior.
-  section: { borderRadius: 12, padding: 12, gap: 10, borderWidth: 1, borderColor: BRAND_BLUE, backgroundColor: '#fff' },
-  // Campo de texto: borde gris, fondo blanco, padding cómodo.
-  input: {
-    borderWidth: 1,
-    borderColor: BRAND_GOLD,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: BRAND_NAVY,
-  },
-  // Variante multilinea: altura mínima y texto alineado arriba.
-  multiline: { minHeight: 70, textAlignVertical: 'top' },
-  // Fila de chips de pago: fila con wrapping para múltiples opciones.
-  paymentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  // Chip de pago no seleccionado.
-  paymentChip: {
-    borderWidth: 1,
-    borderColor: BRAND_BLUE,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-  },
-  // Chip seleccionado: borde y fondo azul claro.
-  paymentChipSelected: { borderColor: BRAND_GOLD, backgroundColor: BRAND_GOLD_BG },
-  // Texto del chip seleccionado: dorado oscuro y negrita.
-  paymentChipTextSelected: { color: BRAND_GOLD_DARK, fontWeight: '700' },
-  // Tarjeta de resumen: fondo azul muy claro.
-  summary: {
-    borderWidth: 1,
-    borderColor: BRAND_BLUE,
-    backgroundColor: BRAND_BLUE,
-    borderRadius: 12,
-    padding: 12,
-    gap: 6,
-  },
-  total: { fontSize: 18, fontWeight: '700', color: BRAND_NAVY },
-  // Botón principal.
-  primaryButton: {
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BRAND_GOLD,
-  },
-  // Opacidad reducida cuando el botón está deshabilitado.
-  primaryButtonDisabled: { opacity: 0.45 },
-  primaryButtonText: { color: '#fff', fontWeight: '700' },
-  error: { color: '#b93a32' },
+  container: { flex: 1, backgroundColor: '#fdf8f4' },
+  content: { padding: 20, gap: 14, paddingBottom: 60 },
+  centered: { flex: 1, backgroundColor: '#fdf8f4', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+  
+  header: { alignItems: 'center', marginBottom: 6, width: '100%' },
+  title: { fontSize: 22, fontWeight: '800', color: '#3d2c1e', textAlign: 'center' },
+  subtitle: { fontSize: 13, color: '#9e8879', textAlign: 'center', marginTop: 4 },
+  
+  label: { fontSize: 13, fontWeight: '700', color: '#7c6455', marginTop: 10, marginBottom: 6 },
+  section: { backgroundColor: '#ffffff', borderRadius: 24, padding: 20, gap: 4, borderWidth: 1, borderColor: '#e8ddd5', shadowColor: '#c4a882', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  
+  input: { borderWidth: 1, borderColor: '#e8ddd5', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: '#fff9f5', color: '#3d2c1e', fontSize: 14, height: 46 },
+  multiline: { height: 80, paddingTop: 12, textAlignVertical: 'top' },
+  
+  paymentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  paymentChip: { borderWidth: 1, borderColor: '#e8ddd5', borderRadius: 20, backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 9 },
+  paymentChipSelected: { backgroundColor: '#fff3e6', borderColor: '#d4956a' },
+  paymentChipText: { color: '#7c6455', fontWeight: '600', fontSize: 13 },
+  paymentChipTextSelected: { color: '#d4956a', fontWeight: '700' },
+  
+  summaryCard: { backgroundColor: '#ffffff', borderRadius: 24, borderWidth: 1, borderColor: '#e8ddd5', padding: 20, gap: 10, shadowColor: '#c4a882', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2, marginVertical: 8 },
+  summaryTitle: { fontSize: 15, fontWeight: '800', color: '#3d2c1e' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  summaryText: { fontSize: 13, color: '#9e8879', fontWeight: '600' },
+  summaryTotal: { fontSize: 18, fontWeight: '800', color: '#192847' },
+  
+  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 14, backgroundColor: '#d4956a', marginTop: 12, height: 48, shadowColor: '#d4956a', shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  confirmBtnDisabled: { opacity: 0.6 },
+  confirmBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  
+  primaryButton: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: '#192847', marginTop: 12, height: 48 },
+  primaryButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 15 },
+
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fde8e8', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#f4baba', width: '100%', marginBottom: 4 },
+  errorText: { color: '#e07070', fontSize: 13, flex: 1, fontWeight: '600' },
 });

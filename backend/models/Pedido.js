@@ -75,6 +75,8 @@ const Pedido = sequelize.define('Pedido', {
     type: DataTypes.ENUM(              // ENUM en MySQL → solo permite estos valores exactos
       'pendiente',                     // Recién creado, esperando pago
       'pagado',                        // Ya pagó, se está preparando
+      'procesando',                    // En preparación
+      'en_proceso',                    // En preparación (variante)
       'enviado',                       // Ya se envió al cliente
       'entregado',                     // El cliente ya lo recibió
       'cancelado'                      // Fue cancelado (se devuelve el stock)
@@ -83,7 +85,7 @@ const Pedido = sequelize.define('Pedido', {
     defaultValue: 'pendiente',         // Todo pedido nuevo empieza como 'pendiente'
     validate: {
       isIn: {                          // Doble validación: a nivel de Sequelize
-        args: [['pendiente', 'pagado', 'enviado', 'entregado', 'cancelado']],
+        args: [['pendiente', 'pagado', 'procesando', 'en_proceso', 'enviado', 'entregado', 'cancelado']],
         msg: 'Estado inválido'
       }
     }
@@ -228,7 +230,7 @@ const Pedido = sequelize.define('Pedido', {
  */
 Pedido.prototype.cambiarEstado = async function(nuevoEstado) {
   // Lista de estados válidos permitidos
-  const estadosValidos = ['pendiente', 'pagado', 'enviado', 'entregado', 'cancelado'];
+  const estadosValidos = ['pendiente', 'pagado', 'procesando', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
   
   // Valida que el nuevo estado esté en la lista
   if (!estadosValidos.includes(nuevoEstado)) {

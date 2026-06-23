@@ -1,0 +1,81 @@
+
+
+# --- app-movil ---
+# lee más en: https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# base de conocimiento local
+/.obsidian
+
+# dependencies
+/app-movil/node_modules/
+
+# Expo
+/app-movil/dist/
+/app-movil/web-build/
+/app-movil/expo-env.d.ts
+
+# Native
+/app-movil/.kotlin/
+/app-movil/*.orig.*
+/app-movil/*.jks
+/app-movil/*.p8
+/app-movil/*.p12
+/app-movil/*.key
+/app-movil/*.mobileprovision
+
+# Metro
+/app-movil/.metro-health-check*
+
+# debug
+/app-movil/npm-debug.*
+/app-movil/yarn-debug.*
+/app-movil/yarn-error.*
+
+# macOS
+/app-movil/.DS_Store
+/app-movil/*.pem
+
+# local env files
+/app-movil/.env*.local
+
+# typescript
+/app-movil/*.tsbuildinfo
+
+# generated native folders
+/app-movil/ios
+/app-movil/android
+
+# --- backend ---
+# Ignorar node_modules
+/backend/node_modules/
+
+# Ignorar archivo de variables de entorno (contiene datos sensibles) por ahora en comentario.
+# /backend/.env
+
+# Ignorar carpeta de imágenes subidas
+/backend/uploads/*
+# Pero mantener la carpeta uploads con un .gitkeep
+!/backend/uploads/.gitkeep
+
+# Ignorar logs
+/backend/*.log
+/backend/npm-debug.log*
+
+# Ignorar archivos de sistema operativo
+/backend/.DS_Store
+/backend/Thumbs.db
+
+# Ignorar archivos de IDEs
+/backend/.vscode/
+/backend/.idea/
+/backend/*.swp
+/backend/*.swo
+/backend/*~
+
+# Ignorar archivos temporales
+/backend/*.tmp
+/backend/*.temp
+
+# --- frontend ---
+# Ignorar node_modules
+/frontend/node_modules/

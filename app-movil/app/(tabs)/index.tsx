@@ -12,7 +12,9 @@ import catalogoService from "../../src/services/catalogoService";
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { useCarrito } from '../../src/context/CarritoContext';
+import { useAuth } from '../../src/context/AuthContext';
 import AdminToast from '../../components/admin-toast';
+import { router } from 'expo-router';
 
 type CarritoCtx = {
     agregarProducto: (producto: unknown, cantidad: number) => Promise<void>;
@@ -26,6 +28,7 @@ const ITEMS_POR_PAGINA = 15;
 
 export default function HomeScreen() {
     const { agregarProducto, totalItems } = useCarrito() as CarritoCtx;
+    const { isAuthenticated } = useAuth();
 
     const [productos, setProductos] = useState<Array<any>>([]);
     const [categorias, setCategorias] = useState<Array<any>>([]);
@@ -108,7 +111,11 @@ export default function HomeScreen() {
     const handleAgregarAlCarrito = async (producto: any) => {
         try {
             await agregarProducto(producto, 1);
-            showToast(`"${producto.nombre}" agregado al carrito`, 'success');
+            if (!isAuthenticated) {
+                showToast(`"${producto.nombre}" agregado al carrito (local)`, 'success');
+            } else {
+                showToast(`"${producto.nombre}" agregado al carrito`, 'success');
+            }
         } catch (error: unknown) {
             const msg = (error as {message?: string})?.message;
             showToast(msg || 'No se pudo agregar al carrito. Verifica el stock disponible.', 'error');
@@ -181,7 +188,7 @@ export default function HomeScreen() {
     const totalPaginas = useMemo(() => Math.ceil(productosFiltrados.length / ITEMS_POR_PAGINA), [productosFiltrados]);
     const productosVisibles = useMemo(() => productosFiltrados.slice((paginaActual - 1) * ITEMS_POR_PAGINA, paginaActual * ITEMS_POR_PAGINA), [productosFiltrados, paginaActual]);
 
-    const ListHeader = () => (
+    const renderHeader = () => (
         <>
             {/* ── HERO BANNER ─────────────────────────────────────────────────── */}
             <View style={styles.hero}>
@@ -491,7 +498,7 @@ export default function HomeScreen() {
         </>
     );
 
-    const ListFooter = () => {
+    const renderFooter = () => {
         if (loading || !hasProductos || totalPaginas <= 1) {
             return <View style={{ height: 16 }} />;
         }
@@ -567,8 +574,8 @@ export default function HomeScreen() {
                 keyExtractor={(item: any) => String(item.id)}
                 numColumns={2}
                 renderItem={renderProducto}
-                ListHeaderComponent={<ListHeader />}
-                ListFooterComponent={<ListFooter />}
+                ListHeaderComponent={renderHeader()}
+                ListFooterComponent={renderFooter()}
                 contentContainerStyle={styles.content}
                 style={styles.flatList}
                 refreshControl={
@@ -616,7 +623,7 @@ export default function HomeScreen() {
                                     <View style={styles.modalStock}>
                                         <Ionicons name="cube-outline" size={14} color="#9e8879" />
                                         <ThemedText style={styles.modalStockText}>
-                                            Stock disponible: {productoDetalle.stock ?? 'N/A'} unidades
+                                            Stock máximo disponible: {productoDetalle.stock ?? 'N/A'} unidades
                                         </ThemedText>
                                     </View>
                                 </ScrollView>

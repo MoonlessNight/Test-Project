@@ -19,7 +19,7 @@ const pedidoService = {
 
     //devuelve el historial de pedidos del usuario autenticado
     getMisPedidos: async () => {
-        const response = await apiClient.get('/cliente/pedidos');
+        const response = await apiClient.get('/cliente/pedidos?limite=200');
         return response.data?.data?.pedidos || response.data?.pedidos || response.data || [];
     },
 

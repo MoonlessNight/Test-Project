@@ -30,6 +30,16 @@ const authService = {
 
     register: async (data) => {
         const response = await apiClient.post('/auth/register', data);
+        const payload = response.data?.data || response.data;
+
+        if (payload?.token) {
+            await storageSetItem(STORAGE_KEYS.token, payload.token);
+        }
+
+        if (payload?.usuario) {
+            await storageSetItem(STORAGE_KEYS.user, payload.usuario);
+        }
+
         return response.data;
     },
 

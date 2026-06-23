@@ -202,8 +202,19 @@ export default function AdminPedidoDetalleScreen() {
       {/* Los botones se muestran condicionalmente según el estado actual del pedido. */}
       <View style={styles.actionsRow}>
 
-        {/* Si el pedido está 'pendiente', se puede marcar como 'enviado' */}
+        {/* Si el pedido está 'pendiente', se puede marcar como 'procesando' */}
         {pedido.estado === 'pendiente' && (
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: '#17a2b8' }]}
+            onPress={() => cambiarEstado('procesando')}
+            disabled={cambiando}
+          >
+            <ThemedText style={styles.actionBtnText}>Marcar como Procesando</ThemedText>
+          </Pressable>
+        )}
+
+        {/* Si el pedido está 'pendiente', 'procesando' o 'en_proceso', se puede marcar como 'enviado' */}
+        {(pedido.estado === 'pendiente' || pedido.estado === 'procesando' || pedido.estado === 'en_proceso') && (
           <Pressable
             style={styles.actionBtn}
             onPress={() => cambiarEstado('enviado')}
@@ -224,8 +235,8 @@ export default function AdminPedidoDetalleScreen() {
           </Pressable>
         )}
 
-        {/* Si el pedido está 'pendiente', también se puede cancelar (botón rojo) */}
-        {pedido.estado === 'pendiente' && (
+        {/* Si el pedido está 'pendiente', 'procesando' o 'en_proceso', también se puede cancelar (botón rojo) */}
+        {(pedido.estado === 'pendiente' || pedido.estado === 'procesando' || pedido.estado === 'en_proceso') && (
           <Pressable
             style={[styles.actionBtn, styles.btnDanger]} // Combina el estilo base + el rojo de peligro.
             onPress={() => cambiarEstado('cancelado')}

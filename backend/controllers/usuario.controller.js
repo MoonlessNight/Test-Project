@@ -208,7 +208,7 @@ const crearUsuario = async (req, res) => {
 const actualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, apellido, telefono, direccion, rol } = req.body;
+    const { nombre, apellido, email, telefono, direccion, rol } = req.body;
     
     // Busca el usuario por ID
     const usuario = await Usuario.findByPk(id);
@@ -221,11 +221,43 @@ const actualizarUsuario = async (req, res) => {
     }
     
     // VALIDACIÓN: Si se envía rol, debe ser válido
-    if (rol && !['cliente', 'administrador'].includes(rol)) {
+    if (rol && !['cliente', 'auxiliar', 'administrador'].includes(rol)) {
       return res.status(400).json({
         success: false,
         message: 'Rol inválido'
       });
+    }
+
+    // VALIDACIÓN Y ACTUALIZACIÓN DE EMAIL
+    if (email !== undefined) {
+      const emailTrimmed = email.trim();
+      if (!emailTrimmed) {
+        return res.status(400).json({
+          success: false,
+          message: 'El correo electrónico es requerido'
+        });
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailTrimmed)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Formato de correo electrónico inválido'
+        });
+      }
+      const { Op } = require('sequelize');
+      const emailExistente = await Usuario.findOne({
+        where: {
+          email: emailTrimmed,
+          id: { [Op.ne]: id }
+        }
+      });
+      if (emailExistente) {
+        return res.status(400).json({
+          success: false,
+          message: 'El correo electrónico ya está registrado por otro usuario'
+        });
+      }
+      usuario.email = emailTrimmed;
     }
     
     // Actualiza SOLO los campos que se enviaron

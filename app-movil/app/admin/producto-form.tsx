@@ -435,15 +435,18 @@ export default function AdminProductoForm() {
 
       {/* Botones de Imagen */}
       <View style={s.imageButtonsContainer}>
-        <Pressable style={s.imageBtn} onPress={pickImage} disabled={loading}>
-          <Ionicons name="images-outline" size={16} color="#7c6455" />
-          <ThemedText style={s.imageBtnText}>Galería</ThemedText>
-        </Pressable>
-        <Pressable style={s.imageBtn} onPress={takePhoto} disabled={loading}>
-          <Ionicons name="camera-outline" size={16} color="#7c6455" />
-          <ThemedText style={s.imageBtnText}>Cámara</ThemedText>
-        </Pressable>
-        {(selectedImage || imagen) ? (
+        {!(selectedImage || imagen) ? (
+          <>
+            <Pressable style={s.imageBtn} onPress={pickImage} disabled={loading}>
+              <Ionicons name="images-outline" size={16} color="#7c6455" />
+              <ThemedText style={s.imageBtnText}>Galería</ThemedText>
+            </Pressable>
+            <Pressable style={s.imageBtn} onPress={takePhoto} disabled={loading}>
+              <Ionicons name="camera-outline" size={16} color="#7c6455" />
+              <ThemedText style={s.imageBtnText}>Cámara</ThemedText>
+            </Pressable>
+          </>
+        ) : (
           <Pressable
             style={[s.imageBtn, s.imageBtnRemove]}
             onPress={() => {
@@ -455,7 +458,7 @@ export default function AdminProductoForm() {
             <Ionicons name="trash-outline" size={16} color="#c0392b" />
             <ThemedText style={s.imageBtnTextRemove}>Quitar</ThemedText>
           </Pressable>
-        ) : null}
+        )}
       </View>
 
       {/* Botones de envío */}

@@ -63,7 +63,17 @@ export function AuthProvider({ children }) {
      */
 
     const register = useCallback(async (data) => {
-        return authService.register(data);
+        const response = await authService.register(data);
+        const payload = response.data || response;
+
+        if (payload?.token) {
+            setToken(payload.token);
+        }
+        if (payload?.usuario) {
+            setUser(payload.usuario);
+        }
+
+        return response;
     }, []);
 
     /**

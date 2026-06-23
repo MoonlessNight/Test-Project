@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1782021542033" clover="3.2.0">
-  <project timestamp="1782021542033" name="All files">
-    <metrics statements="1093" coveredstatements="490" conditionals="498" coveredconditionals="150" methods="74" coveredmethods="35" elements="1665" coveredelements="675" complexity="0" loc="1093" ncloc="1093" packages="3" files="13" classes="13"/>
+<coverage generated="1782254761186" clover="3.2.0">
+  <project timestamp="1782254761187" name="All files">
+    <metrics statements="1105" coveredstatements="490" conditionals="506" coveredconditionals="150" methods="74" coveredmethods="35" elements="1685" coveredelements="675" complexity="0" loc="1105" ncloc="1105" packages="3" files="13" classes="13"/>
     <package name="controllers">
-      <metrics statements="913" coveredstatements="378" conditionals="454" coveredconditionals="139" methods="65" coveredmethods="32"/>
-      <file name="auth.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\auth.controller.js">
+      <metrics statements="925" coveredstatements="378" conditionals="462" coveredconditionals="139" methods="65" coveredmethods="32"/>
+      <file name="auth.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\auth.controller.js">
         <metrics statements="94" coveredstatements="38" conditionals="62" coveredconditionals="18" methods="5" coveredmethods="3"/>
         <line num="12" count="1" type="stmt"/>
         <line num="16" count="1" type="stmt"/>
@@ -101,7 +101,7 @@
         <line num="422" count="0" type="stmt"/>
         <line num="433" count="1" type="stmt"/>
       </file>
-      <file name="carrito.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\carrito.controller.js">
+      <file name="carrito.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\carrito.controller.js">
         <metrics statements="77" coveredstatements="31" conditionals="23" coveredconditionals="6" methods="7" coveredmethods="4"/>
         <line num="12" count="1" type="stmt"/>
         <line num="16" count="1" type="stmt"/>
@@ -181,7 +181,7 @@
         <line num="393" count="0" type="stmt"/>
         <line num="403" count="1" type="stmt"/>
       </file>
-      <file name="catalogo.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\catalogo.controller.js">
+      <file name="catalogo.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\catalogo.controller.js">
         <metrics statements="72" coveredstatements="45" conditionals="27" coveredconditionals="13" methods="7" coveredmethods="6"/>
         <line num="12" count="1" type="stmt"/>
         <line num="16" count="1" type="stmt"/>
@@ -227,8 +227,8 @@
         <line num="229" count="1" type="stmt"/>
         <line num="232" count="1" type="stmt"/>
         <line num="241" count="1" type="stmt"/>
-        <line num="244" count="24" type="stmt"/>
-        <line num="254" count="24" type="stmt"/>
+        <line num="244" count="19" type="stmt"/>
+        <line num="254" count="19" type="stmt"/>
         <line num="262" count="1" type="stmt"/>
         <line num="270" count="0" type="stmt"/>
         <line num="271" count="0" type="stmt"/>
@@ -241,8 +241,8 @@
         <line num="297" count="0" type="stmt"/>
         <line num="304" count="1" type="stmt"/>
         <line num="314" count="1" type="stmt"/>
-        <line num="316" count="7" type="stmt"/>
-        <line num="324" count="7" type="stmt"/>
+        <line num="316" count="3" type="stmt"/>
+        <line num="324" count="3" type="stmt"/>
         <line num="332" count="1" type="stmt"/>
         <line num="344" count="0" type="stmt"/>
         <line num="345" count="0" type="stmt"/>
@@ -256,7 +256,7 @@
         <line num="400" count="0" type="stmt"/>
         <line num="409" count="1" type="stmt"/>
       </file>
-      <file name="categoria.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\categoria.controller.js">
+      <file name="categoria.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\categoria.controller.js">
         <metrics statements="122" coveredstatements="61" conditionals="48" coveredconditionals="20" methods="10" coveredmethods="5"/>
         <line num="12" count="1" type="stmt"/>
         <line num="13" count="1" type="stmt"/>
@@ -381,7 +381,7 @@
         <line num="530" count="0" type="stmt"/>
         <line num="539" count="1" type="stmt"/>
       </file>
-      <file name="pedido.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\pedido.controller.js">
+      <file name="pedido.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\pedido.controller.js">
         <metrics statements="158" coveredstatements="73" conditionals="51" coveredconditionals="23" methods="9" coveredmethods="5"/>
         <line num="12" count="1" type="stmt"/>
         <line num="16" count="1" type="stmt"/>
@@ -542,7 +542,7 @@
         <line num="727" count="0" type="stmt"/>
         <line num="736" count="1" type="stmt"/>
       </file>
-      <file name="producto.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\producto.controller.js">
+      <file name="producto.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\producto.controller.js">
         <metrics statements="164" coveredstatements="61" conditionals="124" coveredconditionals="36" methods="9" coveredmethods="4"/>
         <line num="12" count="1" type="stmt"/>
         <line num="15" count="1" type="stmt"/>
@@ -709,7 +709,7 @@
         <line num="631" count="0" type="stmt"/>
         <line num="640" count="1" type="stmt"/>
       </file>
-      <file name="subcategoria.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\subcategoria.controller.js">
+      <file name="subcategoria.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\subcategoria.controller.js">
         <metrics statements="131" coveredstatements="46" conditionals="66" coveredconditionals="17" methods="10" coveredmethods="3"/>
         <line num="11" count="1" type="stmt"/>
         <line num="15" count="1" type="stmt"/>
@@ -843,8 +843,8 @@
         <line num="545" count="0" type="stmt"/>
         <line num="554" count="1" type="stmt"/>
       </file>
-      <file name="usuario.controller.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\controllers\usuario.controller.js">
-        <metrics statements="95" coveredstatements="23" conditionals="53" coveredconditionals="6" methods="8" coveredmethods="2"/>
+      <file name="usuario.controller.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\controllers\usuario.controller.js">
+        <metrics statements="107" coveredstatements="23" conditionals="61" coveredconditionals="6" methods="8" coveredmethods="2"/>
         <line num="12" count="1" type="stmt"/>
         <line num="24" count="1" type="stmt"/>
         <line num="25" count="1" type="stmt"/>
@@ -896,55 +896,67 @@
         <line num="224" count="0" type="cond" truecount="0" falsecount="4"/>
         <line num="225" count="0" type="stmt"/>
         <line num="232" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="233" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="233" count="0" type="stmt"/>
         <line num="234" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="235" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="236" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="239" count="0" type="stmt"/>
+        <line num="235" count="0" type="stmt"/>
+        <line num="240" count="0" type="stmt"/>
+        <line num="241" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="242" count="0" type="stmt"/>
-        <line num="251" count="0" type="stmt"/>
-        <line num="252" count="0" type="stmt"/>
-        <line num="267" count="1" type="stmt"/>
-        <line num="268" count="0" type="stmt"/>
-        <line num="269" count="0" type="stmt"/>
+        <line num="247" count="0" type="stmt"/>
+        <line num="248" count="0" type="stmt"/>
+        <line num="254" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="255" count="0" type="stmt"/>
+        <line num="260" count="0" type="stmt"/>
+        <line num="264" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="265" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="266" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="267" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="268" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="271" count="0" type="stmt"/>
-        <line num="273" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="274" count="0" type="stmt"/>
-        <line num="282" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="283" count="0" type="stmt"/>
-        <line num="290" count="0" type="stmt"/>
-        <line num="291" count="0" type="stmt"/>
-        <line num="293" count="0" type="stmt"/>
-        <line num="302" count="0" type="stmt"/>
+        <line num="284" count="0" type="stmt"/>
+        <line num="299" count="1" type="stmt"/>
+        <line num="300" count="0" type="stmt"/>
+        <line num="301" count="0" type="stmt"/>
         <line num="303" count="0" type="stmt"/>
-        <line num="317" count="1" type="stmt"/>
-        <line num="318" count="0" type="stmt"/>
-        <line num="319" count="0" type="stmt"/>
-        <line num="321" count="0" type="stmt"/>
-        <line num="323" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="324" count="0" type="stmt"/>
-        <line num="331" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="332" count="0" type="stmt"/>
-        <line num="339" count="0" type="stmt"/>
-        <line num="341" count="0" type="stmt"/>
-        <line num="347" count="0" type="stmt"/>
-        <line num="348" count="0" type="stmt"/>
-        <line num="362" count="1" type="stmt"/>
-        <line num="363" count="0" type="stmt"/>
-        <line num="365" count="0" type="stmt"/>
-        <line num="367" count="0" type="stmt"/>
-        <line num="369" count="0" type="stmt"/>
+        <line num="305" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="306" count="0" type="stmt"/>
+        <line num="314" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="315" count="0" type="stmt"/>
+        <line num="322" count="0" type="stmt"/>
+        <line num="323" count="0" type="stmt"/>
+        <line num="325" count="0" type="stmt"/>
+        <line num="334" count="0" type="stmt"/>
+        <line num="335" count="0" type="stmt"/>
+        <line num="349" count="1" type="stmt"/>
+        <line num="350" count="0" type="stmt"/>
+        <line num="351" count="0" type="stmt"/>
+        <line num="353" count="0" type="stmt"/>
+        <line num="355" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="356" count="0" type="stmt"/>
+        <line num="363" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="364" count="0" type="stmt"/>
         <line num="371" count="0" type="stmt"/>
         <line num="373" count="0" type="stmt"/>
-        <line num="376" count="0" type="stmt"/>
-        <line num="392" count="0" type="stmt"/>
-        <line num="393" count="0" type="stmt"/>
-        <line num="402" count="1" type="stmt"/>
+        <line num="379" count="0" type="stmt"/>
+        <line num="380" count="0" type="stmt"/>
+        <line num="394" count="1" type="stmt"/>
+        <line num="395" count="0" type="stmt"/>
+        <line num="397" count="0" type="stmt"/>
+        <line num="399" count="0" type="stmt"/>
+        <line num="401" count="0" type="stmt"/>
+        <line num="403" count="0" type="stmt"/>
+        <line num="405" count="0" type="stmt"/>
+        <line num="408" count="0" type="stmt"/>
+        <line num="424" count="0" type="stmt"/>
+        <line num="425" count="0" type="stmt"/>
+        <line num="434" count="1" type="stmt"/>
       </file>
     </package>
     <package name="middleware">
       <metrics statements="103" coveredstatements="35" conditionals="44" coveredconditionals="11" methods="9" coveredmethods="3"/>
-      <file name="auth.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\middleware\auth.js">
+      <file name="auth.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\middleware\auth.js">
         <metrics statements="44" coveredstatements="18" conditionals="16" coveredconditionals="5" methods="2" coveredmethods="1"/>
         <line num="14" count="1" type="stmt"/>
         <line num="18" count="1" type="stmt"/>
@@ -991,7 +1003,7 @@
         <line num="181" count="0" type="stmt"/>
         <line num="188" count="1" type="stmt"/>
       </file>
-      <file name="checkRole.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\middleware\checkRole.js">
+      <file name="checkRole.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\middleware\checkRole.js">
         <metrics statements="59" coveredstatements="17" conditionals="28" coveredconditionals="6" methods="7" coveredmethods="2"/>
         <line num="27" count="1" type="stmt"/>
         <line num="28" count="0" type="stmt"/>
@@ -1056,7 +1068,7 @@
     </package>
     <package name="routes">
       <metrics statements="77" coveredstatements="77" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-      <file name="admin.routes.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\routes\admin.routes.js">
+      <file name="admin.routes.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\routes\admin.routes.js">
         <metrics statements="45" coveredstatements="45" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
         <line num="22" count="1" type="stmt"/>
         <line num="27" count="1" type="stmt"/>
@@ -1104,7 +1116,7 @@
         <line num="267" count="1" type="stmt"/>
         <line num="275" count="1" type="stmt"/>
       </file>
-      <file name="auth.routes.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\routes\auth.routes.js">
+      <file name="auth.routes.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\routes\auth.routes.js">
         <metrics statements="10" coveredstatements="10" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
         <line num="26" count="1" type="stmt"/>
         <line num="31" count="1" type="stmt"/>
@@ -1117,7 +1129,7 @@
         <line num="137" count="1" type="stmt"/>
         <line num="145" count="1" type="stmt"/>
       </file>
-      <file name="cliente.routes.js" path="C:\Users\EQUIPO\Documents\GitHub\Test Project\backend\routes\cliente.routes.js">
+      <file name="cliente.routes.js" path="C:\Users\SENA\Desktop\Github\Test-Project\backend\routes\cliente.routes.js">
         <metrics statements="22" coveredstatements="22" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
         <line num="24" count="1" type="stmt"/>
         <line num="29" count="1" type="stmt"/>

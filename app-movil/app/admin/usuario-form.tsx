@@ -75,9 +75,10 @@ export default function AdminUsuarioForm() {
     if (!nombre.trim()) { setErrorMsg('El nombre es obligatorio'); return false; }
     if (!apellido.trim()) { setErrorMsg('El apellido es obligatorio'); return false; }
 
+    if (!email.trim()) { setErrorMsg('El correo es obligatorio'); return false; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setErrorMsg('Correo no válido'); return false; }
+
     if (!editing) {
-      if (!email.trim()) { setErrorMsg('El correo es obligatorio'); return false; }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setErrorMsg('Correo no válido'); return false; }
       if (!password) { setErrorMsg('La contraseña es obligatoria'); return false; }
       if (password.length < 6) { setErrorMsg('La contraseña debe tener al menos 6 caracteres'); return false; }
       if (password !== confirmPassword) { setErrorMsg('Las contraseñas no coinciden'); return false; }
@@ -104,6 +105,7 @@ export default function AdminUsuarioForm() {
         await apiClient.put(`/admin/usuarios/${usuario.id}`, {
           nombre: nombre.trim(),
           apellido: apellido.trim(),
+          email: email.trim(),
           rol,
           ...(telefono.trim() ? { telefono: telefono.trim() } : {}),
           ...(direccion.trim() ? { direccion: direccion.trim() } : {}),
@@ -220,55 +222,57 @@ export default function AdminUsuarioForm() {
         </View>
 
         {/* ── Sección: Credenciales (solo en creación) ──────── */}
-        {!editing && (
-          <View style={s.section}>
-            <ThemedText style={s.sectionTitle}>🔐 Credenciales de acceso</ThemedText>
+        <View style={s.section}>
+          <ThemedText style={s.sectionTitle}>🔐 Credenciales de acceso</ThemedText>
 
-            <ThemedText style={s.label}>Correo electrónico *</ThemedText>
-            <TextInput
-              style={s.input}
-              placeholder="correo@ejemplo.com"
-              placeholderTextColor="#b8a99a"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
+          <ThemedText style={s.label}>Correo electrónico *</ThemedText>
+          <TextInput
+            style={s.input}
+            placeholder="correo@ejemplo.com"
+            placeholderTextColor="#b8a99a"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!loading}
+          />
 
-            <ThemedText style={s.label}>Contraseña *</ThemedText>
-            <View style={s.passWrap}>
-              <TextInput
-                style={s.passInput}
-                placeholder="Mínimo 6 caracteres"
-                placeholderTextColor="#b8a99a"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                editable={!loading}
-              />
-              <Pressable onPress={() => setShowPassword(v => !v)} style={s.eyeBtn}>
-                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#b8a99a" />
-              </Pressable>
-            </View>
+          {!editing && (
+            <>
+              <ThemedText style={s.label}>Contraseña *</ThemedText>
+              <View style={s.passWrap}>
+                <TextInput
+                  style={s.passInput}
+                  placeholder="Mínimo 6 caracteres"
+                  placeholderTextColor="#b8a99a"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
+                <Pressable onPress={() => setShowPassword(v => !v)} style={s.eyeBtn}>
+                  <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#b8a99a" />
+                </Pressable>
+              </View>
 
-            <ThemedText style={s.label}>Confirmar contraseña *</ThemedText>
-            <View style={s.passWrap}>
-              <TextInput
-                style={s.passInput}
-                placeholder="Repite la contraseña"
-                placeholderTextColor="#b8a99a"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                editable={!loading}
-              />
-              <Pressable onPress={() => setShowConfirmPassword(v => !v)} style={s.eyeBtn}>
-                <Ionicons name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#b8a99a" />
-              </Pressable>
-            </View>
-          </View>
-        )}
+              <ThemedText style={s.label}>Confirmar contraseña *</ThemedText>
+              <View style={s.passWrap}>
+                <TextInput
+                  style={s.passInput}
+                  placeholder="Repite la contraseña"
+                  placeholderTextColor="#b8a99a"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  editable={!loading}
+                />
+                <Pressable onPress={() => setShowConfirmPassword(v => !v)} style={s.eyeBtn}>
+                  <Ionicons name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#b8a99a" />
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
 
         {/* ── Sección: Rol ───────────────────────────────────── */}
         <View style={s.section}>

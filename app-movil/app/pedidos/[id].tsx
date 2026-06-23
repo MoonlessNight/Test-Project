@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View, Text } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View, Text, Modal, Platform } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import catalogoService from '../../src/services/catalogoService';
@@ -43,8 +44,8 @@ function formatDate(value: string | undefined): string {
     if (!value) return '-';
     return new Date(value).toLocaleDateString('es-CO', {
         year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
     });
@@ -83,6 +84,17 @@ const getEstadoStyle = (estado: string) => {
   }
 };
 
+const Barcode = () => {
+  const bars = [2, 1, 3, 1, 2, 4, 1, 2, 3, 1, 2, 1, 4, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2];
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 40, marginVertical: 12 }}>
+      {bars.map((w, idx) => (
+        <View key={idx} style={{ width: w, height: '100%', backgroundColor: '#3d2c1e', marginRight: idx % 3 === 0 ? 1 : 2 }} />
+      ))}
+    </View>
+  );
+};
+
 export default function PedidoDetalleScreen() {
     const { id } = useLocalSearchParams();
     const pedidoId = Array.isArray(id) ? id[0] : id;
@@ -92,6 +104,7 @@ export default function PedidoDetalleScreen() {
     const [errorMessage, setErrorMessage] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [facturaVisible, setFacturaVisible] = useState(false);
 
     useEffect(() => {
         if (!pedidoId) {
@@ -156,6 +169,17 @@ export default function PedidoDetalleScreen() {
 
         try {
             await pedidoService.cancelarPedido(pedido.id);
+            
+            // Actualizar la caché de estados en AsyncStorage para evitar que el notifier le lance modal de notificación
+            try {
+                const cacheRaw = await AsyncStorage.getItem('ORDER_STATES_CACHE');
+                const cachedStates = cacheRaw ? JSON.parse(cacheRaw) : {};
+                cachedStates[String(pedido.id)] = 'cancelado';
+                await AsyncStorage.setItem('ORDER_STATES_CACHE', JSON.stringify(cachedStates));
+            } catch (storageErr) {
+                console.warn('No se pudo actualizar el estado de pedido cancelado en caché:', storageErr);
+            }
+
             const actualizado = await pedidoService.getPedidoById(pedido.id);
             setPedido(actualizado);
         } catch (error) {
@@ -244,6 +268,14 @@ export default function PedidoDetalleScreen() {
                         </Pressable>
                     ) : null}
 
+                    {/* Botón ver factura */}
+                    {pedido && (
+                        <Pressable style={styles.invoiceBtn} onPress={() => setFacturaVisible(true)}>
+                            <Ionicons name="receipt-outline" size={18} color="#fff" />
+                            <Text style={styles.invoiceBtnText}>Ver Factura (Recibo)</Text>
+                        </Pressable>
+                    )}
+
                     <View style={styles.buttonsRow}>
                         <Pressable style={styles.secondaryButton} onPress={() => router.replace('/mis-pedidos')}>
                             <Text style={styles.secondaryButtonText}>Mis pedidos</Text>
@@ -271,6 +303,120 @@ export default function PedidoDetalleScreen() {
                 }}
                 onCancel={() => setShowCancelConfirm(false)}
             />
+
+            {/* Modal Factura (Ticket) */}
+            <Modal visible={facturaVisible} transparent animationType="fade" onRequestClose={() => setFacturaVisible(false)}>
+                <View style={styles.invoiceOverlay}>
+                    <View style={styles.invoiceContainer}>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.invoiceScroll}>
+                            
+                            {/* Torn edge top */}
+                            <Text style={styles.tornEdge}>- - - - - - - - - - - - - - - - - - - - - - - - - -</Text>
+                            
+                            {/* Header */}
+                            <View style={styles.invoiceHeader}>
+                                <Text style={styles.invoiceBrand}>MOONLESS NIGHT STORE</Text>
+                                <Text style={styles.invoiceSub}>NIT: 900.123.456-7</Text>
+                                <Text style={styles.invoiceSub}>Calle Falsa 123, Bogotá</Text>
+                                <Text style={styles.invoiceSub}>Tel: 300 123 4567</Text>
+                                <View style={styles.invoiceDivider} />
+                                <Text style={styles.invoiceTitle}>FACTURA DE VENTA</Text>
+                                <Text style={styles.invoiceNumber}>Nº PEDIDO: {String(pedido.id).slice(-8).toUpperCase()}</Text>
+                            </View>
+
+                            <View style={styles.invoiceDivider} />
+
+                            {/* Invoice Meta */}
+                            <View style={styles.invoiceMeta}>
+                                <Text style={styles.invoiceText}><Text style={styles.boldText}>Fecha Pedido: </Text>{formatDate(pedido.createdAt)}</Text>
+                                <Text style={styles.invoiceText}><Text style={styles.boldText}>Dirección: </Text>{pedido.direccionEnvio || '—'}</Text>
+                                <Text style={styles.invoiceText}><Text style={styles.boldText}>Teléfono: </Text>{pedido.telefono || '—'}</Text>
+                                <Text style={styles.invoiceText}><Text style={styles.boldText}>Método Pago: </Text>{pedido.metodoPago?.toUpperCase() || 'EFECTIVO'}</Text>
+                                <Text style={styles.invoiceText}><Text style={styles.boldText}>Estado: </Text>{pedido.estado?.toUpperCase()}</Text>
+                            </View>
+
+                            <View style={styles.invoiceDivider} />
+
+                            {/* Items Table */}
+                            <View style={styles.invoiceItemsHeader}>
+                                <Text style={[styles.invoiceItemText, styles.invoiceColQty, styles.boldText]}>Cant</Text>
+                                <Text style={[styles.invoiceItemText, styles.invoiceColName, styles.boldText]}>Producto</Text>
+                                <Text style={[styles.invoiceItemText, styles.invoiceColSub, styles.boldText, { textAlign: 'right' }]}>Total</Text>
+                            </View>
+                            <View style={styles.invoiceDividerDotted} />
+                            
+                            {detalles.map((det) => {
+                                const prod = det.producto || det.Producto || {};
+                                return (
+                                    <View key={det.id} style={styles.invoiceItemRow}>
+                                        <Text style={[styles.invoiceItemText, styles.invoiceColQty]}>{det.cantidad}</Text>
+                                        <Text style={[styles.invoiceItemText, styles.invoiceColName]} numberOfLines={2}>
+                                            {prod.nombre || 'Producto desconocido'}
+                                        </Text>
+                                        <Text style={[styles.invoiceItemText, styles.invoiceColSub, { textAlign: 'right' }]}>
+                                            {formatCOP(det.subtotal)}
+                                        </Text>
+                                    </View>
+                                );
+                            })}
+
+                            <View style={styles.invoiceDivider} />
+
+                            {/* Financials */}
+                            <View style={styles.invoiceTotals}>
+                                <View style={styles.totalRow}>
+                                    <Text style={styles.invoiceText}>Subtotal (Base):</Text>
+                                    <Text style={styles.invoiceText}>
+                                        {formatCOP(Number(pedido.total || 0) / 1.19)}
+                                    </Text>
+                                </View>
+                                <View style={styles.totalRow}>
+                                    <Text style={styles.invoiceText}>IVA (19% Incluido):</Text>
+                                    <Text style={styles.invoiceText}>
+                                        {formatCOP(Number(pedido.total || 0) - (Number(pedido.total || 0) / 1.19))}
+                                    </Text>
+                                </View>
+                                <View style={styles.invoiceDividerDotted} />
+                                <View style={styles.totalRow}>
+                                    <Text style={[styles.invoiceText, styles.boldText, { fontSize: 14 }]}>TOTAL NETO:</Text>
+                                    <Text style={[styles.invoiceText, styles.boldText, { fontSize: 14 }]}>
+                                        {formatCOP(pedido.total)}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.invoiceDivider} />
+                            
+                            {/* Barcode */}
+                            <View style={styles.barcodeContainer}>
+                                <Barcode />
+                                <Text style={styles.barcodeLabel}>*{pedido.id}*</Text>
+                            </View>
+
+                            {/* Signature Area */}
+                            <View style={styles.signatureArea}>
+                                <View style={styles.signatureLine} />
+                                <Text style={styles.signatureText}>Firma del Cliente</Text>
+                            </View>
+
+                            {/* Thank you footer */}
+                            <View style={styles.invoiceFooter}>
+                                <Text style={styles.thanksText}>*** GRACIAS POR SU COMPRA ***</Text>
+                                <Text style={styles.thanksText}>Moonless Night App</Text>
+                            </View>
+
+                            {/* Torn edge bottom */}
+                            <Text style={styles.tornEdge}>- - - - - - - - - - - - - - - - - - - - - - - - - -</Text>
+
+                        </ScrollView>
+
+                        {/* Back button */}
+                        <Pressable style={styles.invoiceCloseBtn} onPress={() => setFacturaVisible(false)}>
+                            <Text style={styles.invoiceCloseBtnText}>Volver al Detalle</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -427,5 +573,38 @@ const styles = StyleSheet.create({
     },
     cancelButtonDisabled: { opacity: 0.55 },
     cancelButtonText: { color: '#e07070', fontWeight: '700', fontSize: 14 },
+    invoiceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#d4956a', paddingVertical: 12, borderRadius: 14, marginTop: 8, height: 48 },
+    invoiceBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    invoiceOverlay: { flex: 1, backgroundColor: 'rgba(61,44,30,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    invoiceContainer: { backgroundColor: '#fff', borderRadius: 20, width: '100%', maxHeight: '90%', padding: 16, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 15, elevation: 5 },
+    invoiceScroll: { paddingVertical: 10, paddingHorizontal: 4 },
+    tornEdge: { fontSize: 12, color: '#c4b5a6', textAlign: 'center', letterSpacing: 2, marginVertical: 4 },
+    invoiceHeader: { alignItems: 'center', gap: 4 },
+    invoiceBrand: { fontSize: 18, fontWeight: '800', color: '#3d2c1e', letterSpacing: 1 },
+    invoiceSub: { fontSize: 11, color: '#7c6455' },
+    invoiceDivider: { height: 1, backgroundColor: '#3d2c1e', marginVertical: 10, borderStyle: 'dashed', borderWidth: 0.5, borderColor: '#3d2c1e' },
+    invoiceDividerDotted: { height: 1, borderBottomWidth: 1, borderColor: '#3d2c1e', borderStyle: 'dotted', marginVertical: 8 },
+    invoiceTitle: { fontSize: 14, fontWeight: '700', color: '#3d2c1e', letterSpacing: 2, marginVertical: 4 },
+    invoiceNumber: { fontSize: 12, fontWeight: '700', color: '#3d2c1e' },
+    invoiceMeta: { gap: 4 },
+    invoiceText: { fontSize: 12, color: '#3d2c1e', fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
+    boldText: { fontWeight: '700' },
+    invoiceItemsHeader: { flexDirection: 'row', gap: 6 },
+    invoiceColQty: { width: 40 },
+    invoiceColName: { flex: 1 },
+    invoiceColSub: { width: 80 },
+    invoiceItemText: { fontSize: 12, color: '#3d2c1e', fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
+    invoiceItemRow: { flexDirection: 'row', gap: 6, marginVertical: 4 },
+    invoiceTotals: { gap: 4 },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    barcodeContainer: { alignItems: 'center', marginVertical: 12 },
+    barcodeLabel: { fontSize: 11, color: '#3d2c1e', fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', letterSpacing: 3 },
+    signatureArea: { alignItems: 'center', marginTop: 24, marginBottom: 12 },
+    signatureLine: { width: 160, height: 1, backgroundColor: '#7c6455' },
+    signatureText: { fontSize: 10, color: '#7c6455', marginTop: 4 },
+    invoiceFooter: { alignItems: 'center', gap: 4, marginVertical: 12 },
+    thanksText: { fontSize: 11, fontWeight: '700', color: '#3d2c1e' },
+    invoiceCloseBtn: { backgroundColor: '#fdf8f4', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 12 },
+    invoiceCloseBtnText: { color: '#d4956a', fontWeight: '700', fontSize: 14 },
     capitalize: { textTransform: 'capitalize' },
 });

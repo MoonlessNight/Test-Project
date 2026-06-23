@@ -292,6 +292,10 @@ export default function CarritoScreen() {
                                                     <Text style={styles.detailLabel}>Por Unidad</Text>
                                                     <Text style={styles.detailValue}>{fmt(item.precio || 0)}</Text>
                                                 </View>
+                                                <View style={[styles.detailItem, { borderRightWidth: 1, borderColor: '#f3ece6' }]}>
+                                                    <Text style={styles.detailLabel}>Stock Máx</Text>
+                                                    <Text style={styles.detailValue}>{item.stock ?? 'N/A'}</Text>
+                                                </View>
                                                 <View style={styles.detailItem}>
                                                     <Text style={styles.detailLabel}>Por Subtotal</Text>
                                                     <Text style={[styles.detailValue, { color: '#d4956a', fontWeight: '800' }]}>

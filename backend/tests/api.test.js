@@ -517,7 +517,8 @@ describe('🧪 TESTS DE API E-COMMERCE', () => {
         .get('/api/catalogo/productos');
       
       expect(productosResponse.body.data.productos.length).toBeGreaterThan(0);
-      const productId = productosResponse.body.data.productos[0].id;
+      const activeProduct = productosResponse.body.data.productos.find(p => p.stock >= 2 && p.activo);
+      const productId = activeProduct ? activeProduct.id : productosResponse.body.data.productos[0].id;
       
       const response = await request(app)
         .post('/api/cliente/carrito')

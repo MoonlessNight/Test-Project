@@ -8,11 +8,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── IMPORTACIONES ────────────────────────────────────────────────────────────
+import { useEffect, useState } from 'react';
+import { Modal, StyleSheet, Text, Pressable, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'; // Temas claro/oscuro.
-import { Stack } from 'expo-router';          // Navegación por pila (Stack Navigator).
+import { Stack, router } from 'expo-router';          // Navegación por pila (Stack Navigator).
 import { StatusBar } from 'expo-status-bar';  // Barra de estado del sistema operativo.
 import 'react-native-reanimated';             // Requerido por Reanimated para funcionar antes de cualquier animación.
 import { LogBox } from 'react-native';
+import { useAuth } from '../src/context/AuthContext';
+import pedidoService from '../src/services/pedidoService';
+import { Ionicons } from '@expo/vector-icons';
 
 // Ignora el error inofensivo de Keep Awake en emuladores/dispositivos
 LogBox.ignoreLogs(['Unable to activate keep awake']);
@@ -103,8 +109,216 @@ export default function RootLayout() {
 
           {/* StatusBar: ajusta automáticamente el color de los íconos (claro/oscuro) según el tema. */}
           <StatusBar style="auto" />
+          <OrderUpdateNotifier />
         </ThemeProvider>
       </CarritoProvider>
     </AuthProvider>
   );
 }
+
+function OrderUpdateNotifier() {
+  const { isAuthenticated } = useAuth();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [updatedOrder, setUpdatedOrder] = useState<{ id: string; estado: string } | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const checkOrderUpdates = async () => {
+      try {
+        const pedidos = await pedidoService.getMisPedidos();
+        if (!pedidos || !Array.isArray(pedidos)) return;
+
+        const cacheRaw = await AsyncStorage.getItem('ORDER_STATES_CACHE');
+        const cachedStates = cacheRaw ? JSON.parse(cacheRaw) : {};
+        let hasChanges = false;
+        let orderToNotify: { id: string; estado: string } | null = null;
+
+        for (const pedido of pedidos) {
+          const pedidoId = String(pedido.id || pedido._id);
+          const currentEstado = pedido.estado;
+
+          if (cachedStates[pedidoId] !== undefined) {
+            if (cachedStates[pedidoId] !== currentEstado) {
+              orderToNotify = { id: pedidoId, estado: currentEstado };
+              cachedStates[pedidoId] = currentEstado;
+              hasChanges = true;
+              // Break on first detected change to notify the user one by one
+              break;
+            }
+          } else {
+            cachedStates[pedidoId] = currentEstado;
+            hasChanges = true;
+          }
+        }
+
+        if (hasChanges) {
+          await AsyncStorage.setItem('ORDER_STATES_CACHE', JSON.stringify(cachedStates));
+        }
+
+        if (orderToNotify) {
+          setUpdatedOrder(orderToNotify);
+          setModalVisible(true);
+        }
+      } catch (error) {
+        console.warn('Error checking order status updates:', error);
+      }
+    };
+
+    // Run immediately on mount/login
+    checkOrderUpdates();
+
+    // Set interval for every 15 seconds
+    const interval = setInterval(checkOrderUpdates, 15000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  const mapEstadoLabel = (value: string): string => {
+    const labels: Record<string, string> = {
+      pendiente: 'Pendiente',
+      confirmado: 'Confirmado',
+      en_proceso: 'En proceso',
+      procesando: 'En proceso',
+      enviado: 'Enviado',
+      entregado: 'Entregado',
+      cancelado: 'Cancelado',
+    };
+    return labels[value.toLowerCase()] || value;
+  };
+
+  if (!modalVisible || !updatedOrder) return null;
+
+  return (
+    <Modal
+      transparent
+      animationType="fade"
+      visible={modalVisible}
+      onRequestClose={() => setModalVisible(false)}
+    >
+      <View style={s.modalBackdrop}>
+        <View style={s.modalCard}>
+          <View style={s.iconWrapper}>
+            <Ionicons name="notifications-circle-outline" size={48} color="#d4956a" />
+          </View>
+          <Text style={s.modalTitle}>¡Actualización de Pedido!</Text>
+          <Text style={s.modalMessage}>
+            El estado de tu pedido #{updatedOrder.id} ha cambiado a:
+          </Text>
+          <View style={s.statusBadge}>
+            <Text style={s.statusText}>{mapEstadoLabel(updatedOrder.estado)}</Text>
+          </View>
+          <View style={s.btnRow}>
+            <Pressable
+              style={s.closeBtn}
+              onPress={() => {
+                setModalVisible(false);
+                setUpdatedOrder(null);
+              }}
+            >
+              <Text style={s.closeBtnText}>Cerrar</Text>
+            </Pressable>
+            <Pressable
+              style={s.actionBtn}
+              onPress={() => {
+                setModalVisible(false);
+                const orderId = updatedOrder.id;
+                setUpdatedOrder(null);
+                router.push(`/pedidos/${orderId}`);
+              }}
+            >
+              <Text style={s.actionBtnText}>Ver el Pedido</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const s = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(25, 40, 71, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    shadowColor: '#192847',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#e8ddd5',
+  },
+  iconWrapper: {
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#3d2c1e',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#7c6455',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  statusBadge: {
+    backgroundColor: '#fff3e6',
+    borderColor: '#d4956a',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 20,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#d4956a',
+    textTransform: 'uppercase',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  closeBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#f0ede8',
+    alignItems: 'center',
+  },
+  closeBtnText: {
+    color: '#9e8879',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  actionBtn: {
+    flex: 1.5,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#192847',
+    alignItems: 'center',
+  },
+  actionBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+});
