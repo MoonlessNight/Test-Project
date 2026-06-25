@@ -5,8 +5,8 @@
  * Define la estructura de la tabla 'productos' en MySQL usando Sequelize ORM.
  * Cada fila representa un producto del e-commerce con nombre, precio, stock, imagen, etc.
  * Un producto pertenece a UNA categoría y UNA subcategoría (relaciones belongsTo en models/index.js).
- * La imagen se guarda como nombre de archivo; el archivo físico está en la carpeta uploads/.
- * Hooks validan consistencia categoría-subcategoría y eliminan la imagen al borrar el producto.
+ * La imagen se guarda directamente en MySQL como BLOB.
+ * Hooks validan consistencia categoría-subcategoría.
  */
 
 // Importa DataTypes de la librería 'sequelize' (paquete npm)
@@ -87,19 +87,28 @@ const Producto = sequelize.define('Producto', {
     }
   },
 
-  // Columna 'imagen' → Nombre del archivo de imagen subido por Multer
-  // Solo guarda el nombre del archivo: "1709578800000-producto.jpg"
-  // La ruta completa es: uploads/1709578800000-producto.jpg (servida por Express como estático)
-  // Multer está configurado en config/multer.js
+  // Columna 'imagen' → Imagen en formato BLOB almacenada directamente en MySQL
+  // Se guarda como binario y se devuelve como data URL para el frontend.
   imagen: {
-    type: DataTypes.STRING(255),       // VARCHAR(255) → nombre del archivo
+    type: DataTypes.BLOB('long'),      // LONGBLOB → puede guardar imágenes grandes
     allowNull: true,                   // Opcional: un producto puede no tener imagen
-    validate: {
-      is: {                            // Valida con expresión regular (regex)
-        args: /\.(jpg|jpeg|png|gif)$/i,  // Solo extensiones de imagen permitidas
-        msg: 'La imagen debe ser un archivo JPG, PNG o GIF'
+    get() {
+      const value = this.getDataValue('imagen');
+      if (!value) return null;
+      if (Buffer.isBuffer(value)) {
+        const base64 = value.toString('base64');
+        const mimeType = this.getDataValue('mimeType') || 'image/jpeg';
+        return `data:${mimeType};base64,${base64}`;
       }
+      return value;
     }
+  },
+
+  // Columna 'mimeType' → Tipo MIME de la imagen (image/jpeg, image/png, etc.)
+  mimeType: {
+    type: DataTypes.STRING(50),        // VARCHAR(50) → ejemplo: "image/jpeg"
+    allowNull: true,                   // Opcional: solo si tiene imagen
+    defaultValue: 'image/jpeg'
   },
 
   // Columna 'subcategoriaId' → Clave foránea (FK) a la tabla 'subcategorias'
@@ -240,25 +249,6 @@ const Producto = sequelize.define('Producto', {
           throw new Error('La subcategoría no pertenece a la categoría seleccionada');
         }
       }
-    },
-
-    /**
-     * beforeDestroy → Se ejecuta ANTES de eliminar un producto
-     * Elimina el archivo de imagen del servidor (carpeta uploads/) si existe.
-     * deleteFile() está definido en config/multer.js
-     */
-    beforeDestroy: async (producto) => {
-      if (producto.imagen) {               // Solo si el producto tiene imagen
-        // Importa deleteFile desde config/multer.js
-        const { deleteFile } = require('../config/multer');
-        
-        // Intenta eliminar el archivo físico del servidor
-        const eliminado = deleteFile(producto.imagen);
-        
-        if (eliminado) {
-          console.log(`🗑️ Imagen eliminada: ${producto.imagen}`);
-        }
-      }
     }
   }
 });
@@ -277,6 +267,10 @@ const Producto = sequelize.define('Producto', {
 Producto.prototype.obtenerUrlImagen = function() {
   if (!this.imagen) {                      // Si no tiene imagen → retorna null
     return null;
+  }
+
+  if (typeof this.imagen === 'string' && this.imagen.startsWith('data:')) {
+    return this.imagen;
   }
   
   // Toma la URL base de la variable de entorno o usa localhost por defecto
@@ -312,9 +306,9 @@ Producto.prototype.reducirStock = async function(cantidad) {
  * @param {number} cantidad - Unidades a sumar
  * @returns {Promise<Producto>} Producto actualizado
  */
-Producto.prototype.aumentarStock = async function(cantidad) {
+Producto.prototype.aumentarStock = async function(cantidad, transaction = null) {
   this.stock += cantidad;                  // Suma la cantidad al stock
-  return await this.save();                // Guarda en la BD
+  return await this.save(transaction ? { transaction } : {});                // Guarda en la BD
 };
 
 // Exporta el modelo Producto para usarlo en controladores, otros modelos y seeders

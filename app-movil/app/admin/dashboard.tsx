@@ -29,7 +29,7 @@ type StatCard = {
 };
 
 export default function AdminDashboardScreen() {
-    const { user, isAuthenticated } = useAuth() as { user: AuthUser | null; isAuthenticated: boolean };
+    const { user, isAuthenticated, isLoadingSession } = useAuth() as { user: AuthUser | null; isAuthenticated: boolean; isLoadingSession: boolean };
     const isAdmin = user?.rol === 'administrador';
     const isAuxiliar = user?.rol === 'auxiliar';
 
@@ -40,6 +40,7 @@ export default function AdminDashboardScreen() {
         usuarios: 0,
         pedidos: 0,
         ventas: 0,
+        comentarios: 0,
     });
 
     const [loading, setLoading] = useState(false);
@@ -49,11 +50,12 @@ export default function AdminDashboardScreen() {
             const load = async () => {
                 setLoading(true);
                 try {
-                    const [cats, subs, prods, orders] = await Promise.all([
+                    const [cats, subs, prods, orders, comments] = await Promise.all([
                         apiClient.get('/admin/categorias'),
                         apiClient.get('/admin/subcategorias'),
                         apiClient.get('/admin/productos?limite=1'),
                         apiClient.get('/admin/pedidos/estadisticas'),
+                        apiClient.get('/admin/comentarios?limite=1'),
                     ]);
 
                     const userStats = isAdmin ? await apiClient.get('/admin/usuarios/stats') : null;
@@ -69,6 +71,7 @@ export default function AdminDashboardScreen() {
                         usuarios: userStats?.data?.data?.total || 0,
                         pedidos: ordStats.totalPedidos || 0,
                         ventas: Number(ordStats.ventasTotales) || 0,
+                        comentarios: comments.data?.data?.paginacion?.totalComentarios || 0,
                     });
                 } catch (_) {
                     // ignore
@@ -82,6 +85,15 @@ export default function AdminDashboardScreen() {
             }
         }, [isAuthenticated, isAdmin, isAuxiliar])
     );
+
+    if (isLoadingSession) {
+        return (
+            <View style={s.centered}>
+                <ActivityIndicator size="large" color="#d4956a" />
+                <ThemedText style={[s.restrictedSub, { marginTop: 8 }]}>Verificando credenciales...</ThemedText>
+            </View>
+        );
+    }
 
     if (!isAuthenticated || (!isAdmin && !isAuxiliar)) {
         return (
@@ -99,6 +111,7 @@ export default function AdminDashboardScreen() {
         { title: 'Productos',     value: stats.productos,     icon: 'cube-outline',        color: '#d4956a', bg: '#fef3e2', emoji: '📦', route: '/admin/productos', show: true },
         { title: 'Usuarios',      value: stats.usuarios,      icon: 'people-outline',      color: '#1a6b9e', bg: '#e8f4fd', emoji: '👥', route: '/admin/usuarios',  show: isAdmin },
         { title: 'Pedidos',       value: stats.pedidos,       icon: 'cart-outline',        color: '#52b788', bg: '#d8f3dc', emoji: '🛒', route: '/admin/pedidos',   show: true },
+        { title: 'Comentarios',   value: stats.comentarios,   icon: 'chatbox-ellipses-outline', color: '#9e8879', bg: '#fff3e6', emoji: '💬', route: '/admin/comentarios', show: true },
     ];
 
     const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;

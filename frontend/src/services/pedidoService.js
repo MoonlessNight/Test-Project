@@ -11,11 +11,13 @@ const pedidoService = {
   /**
    * Crear pedido (checkout)
    */
-  crearPedido: async (direccionEnvio, telefono) => {
+  crearPedido: async (direccionEnvio, telefono, metodoPago = 'efectivo', solicitudPedido = '') => {
     try {
       const response = await api.post('/cliente/pedidos', {
         direccionEnvio,
         telefono,
+        metodoPago,
+        solicitudPedido
       });
       return response.data;
     } catch (error) {
@@ -29,7 +31,7 @@ const pedidoService = {
   getMisPedidos: async () => {
     try {
       const response = await api.get('/cliente/pedidos');
-      return response.data.data?.pedidos || response.data.pedidos || response.data;
+      return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Error de conexión' };
     }
@@ -76,8 +78,13 @@ const pedidoService = {
    */
   obtenerPedidoPorId: async (id) => {
     try {
-      const response = await api.get(`/admin/pedidos/${id}`);
-      return response.data.data?.pedido || response.data.pedido || response.data.data || response.data;
+      try {
+        const response = await api.get(`/admin/pedidos/${id}`);
+        return response.data.data?.pedido || response.data.pedido || response.data.data || response.data;
+      } catch (adminError) {
+        const response = await api.get(`/cliente/pedidos/${id}`);
+        return response.data.data?.pedido || response.data.pedido || response.data.data || response.data;
+      }
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Error de conexión' };
     }
@@ -88,7 +95,7 @@ const pedidoService = {
    */
   actualizarEstadoPedido: async (id, estado) => {
     try {
-      const response = await api.put(`/admin/pedidos/${id}`, { estado });
+      const response = await api.put(`/admin/pedidos/${id}/estado`, { estado });
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Error de conexión' };

@@ -1,8 +1,13 @@
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 // Expo proporciona la IP local de tu máquina en hostUri (ej: "192.168.1.15:8081")
 const hostUri = Constants.expoConfig?.hostUri;
-const localhost = hostUri ? hostUri.split(':')[0] : '10.0.2.2';
+let localhost = hostUri ? hostUri.split(':')[0] : '10.0.2.2';
+
+if (Platform.OS === 'web') {
+    localhost = 'localhost';
+}
 
 export const API_TIMEOUT_MS = 15000; //15 segundos
 

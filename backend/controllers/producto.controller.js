@@ -246,9 +246,9 @@ const crearProducto = async (req, res) => {
       });
     }
     
-    // Si se subió una imagen, Multer la guarda en uploads/ y pone los datos en req.file.
-    // req.file.filename es el nombre generado por Multer (ej: "producto_1719344567890_abc12.jpg")
-    const imagen = req.file ? req.file.filename : null;
+    // Si se subió una imagen, Multer la pone en memoria en req.file.buffer.
+    const imagen = req.file ? req.file.buffer : null;
+    const mimeType = req.file ? req.file.mimetype : null;
     
     // Crea el registro en la tabla Producto (INSERT INTO Producto ...)
     const nuevoProducto = await Producto.create({
@@ -258,7 +258,8 @@ const crearProducto = async (req, res) => {
       stock: parseInt(stock) || 0,                  // Convierte a entero, default 0
       categoriaId: parseInt(categoriaId),           // FK a la tabla Categoria
       subcategoriaId: parseInt(subcategoriaId),     // FK a la tabla Subcategoria
-      imagen,                                       // Nombre del archivo o null
+      imagen,                                       // Buffer binario o null
+      mimeType,                                     // Tipo MIME o null
       activo: true                                   // Se crea activo por defecto
     });
     
@@ -282,17 +283,6 @@ const crearProducto = async (req, res) => {
   } catch (error) {
     console.error('Error en crearProducto:', error);
     
-    // Si ocurrió un error y se había subido una imagen, la elimina del disco
-    // para no dejar archivos huérfanos.
-    if (req.file) {
-      // path.join() construye la ruta completa: __dirname (directorio actual) + ../uploads + nombre
-      const rutaImagen = path.join(__dirname, '../uploads', req.file.filename);
-      try {
-        await fs.unlink(rutaImagen);    // Elimina el archivo del disco
-      } catch (err) {
-        console.error('Error al eliminar imagen:', err);
-      }
-    }
     
     // Captura errores de validación del modelo Sequelize
     if (error.name === 'SequelizeValidationError') {
@@ -382,8 +372,8 @@ const actualizarProducto = async (req, res) => {
     
     // Si se subió una nueva imagen, reemplaza la anterior
     if (req.file) {
-      // Si el producto ya tenía una imagen, la elimina del disco
-      if (producto.imagen) {
+      // Si el producto ya tenía una imagen almacenada como archivo local, intenta eliminarla.
+      if (producto.imagen && typeof producto.imagen === 'string' && !producto.imagen.startsWith('data:')) {
         const rutaImagenAnterior = path.join(__dirname, '../uploads', producto.imagen);
         try {
           await fs.unlink(rutaImagenAnterior);   // Elimina el archivo anterior
@@ -391,8 +381,8 @@ const actualizarProducto = async (req, res) => {
           console.error('Error al eliminar imagen anterior:', err);
         }
       }
-      // Asigna el nombre de la nueva imagen
-      producto.imagen = req.file.filename;
+      producto.imagen = req.file.buffer;
+      producto.mimeType = req.file.mimetype;
     }
     
     // Actualiza SOLO los campos que se enviaron (si no se envían, no cambian)
@@ -427,15 +417,6 @@ const actualizarProducto = async (req, res) => {
   } catch (error) {
     console.error('Error en actualizarProducto:', error);
     
-    // Si hubo error y se subió una nueva imagen, la elimina para no dejar archivos huérfanos
-    if (req.file) {
-      const rutaImagen = path.join(__dirname, '../uploads', req.file.filename);
-      try {
-        await fs.unlink(rutaImagen);
-      } catch (err) {
-        console.error('Error al eliminar imagen:', err);
-      }
-    }
     
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({

@@ -71,9 +71,9 @@ const usuarioService = {
   /**
    * Cambiar estado activo/inactivo
    */
-  cambiarEstado: async (id, activo) => {
+  cambiarEstado: async (id) => {
     try {
-      const response = await api.put(`/admin/usuarios/${id}`, { activo });
+      const response = await api.patch(`/admin/usuarios/${id}/toggle`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { success: false, message: 'Error de conexión' };

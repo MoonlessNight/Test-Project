@@ -309,6 +309,54 @@ const adminService = {
       throw error.response?.data || { success: false, message: 'Error de conexión' };
     }
   },
+
+  // ==========================================
+  // FACTURAS (ADMIN)
+  // ==========================================
+  getFacturas: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (filters.estado) params.append('estado', filters.estado);
+      if (filters.pedidoId) params.append('pedidoId', filters.pedidoId);
+      if (filters.buscar) params.append('buscar', filters.buscar);
+      if (filters.pagina) params.append('pagina', filters.pagina);
+      if (filters.limite) params.append('limite', filters.limite);
+      
+      const response = await api.get(`/admin/facturas?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error de conexión' };
+    }
+  },
+
+  getFacturaById: async (id) => {
+    try {
+      const response = await api.get(`/admin/facturas/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error de conexión' };
+    }
+  },
+
+  anularFactura: async (id) => {
+    try {
+      const response = await api.put(`/admin/facturas/${id}/anular`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error de conexión' };
+    }
+  },
+
+  descargarFacturaPDF: async (numeroFactura) => {
+    try {
+      const response = await api.get(`/admin/facturas/${numeroFactura}/descargar`, {
+        responseType: 'blob'
+      });
+      return response;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error de conexión' };
+    }
+  },
 };
 
 export default adminService;

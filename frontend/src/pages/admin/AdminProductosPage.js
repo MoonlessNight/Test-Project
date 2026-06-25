@@ -11,20 +11,26 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { getImageUrl } from '../../utils/helpers';
 import { exportarProductosAPDF, exportarProductosAExcel } from '../../utils/exportUtils';
 
 // Componente memoizado para imágenes de productos
 const ProductImage = memo(({ imagen, nombre }) => {
-  const [imgSrc, setImgSrc] = useState(imagen || '/producto-default.jpg');
+  const [imgSrc, setImgSrc] = useState(() => getImageUrl(imagen));
   const hasError = useRef(false);
-  
+
+  useEffect(() => {
+    hasError.current = false;
+    setImgSrc(getImageUrl(imagen));
+  }, [imagen]);
+
   const handleImageError = useCallback(() => {
     if (!hasError.current) {
       hasError.current = true;
       setImgSrc('/producto-default.jpg');
     }
   }, []);
-  
+
   return (
     <img
       src={imgSrc}
@@ -47,6 +53,8 @@ const AdminProductosPage = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editando, setEditando] = useState(null);
+  const [imagenArchivo, setImagenArchivo] = useState(null);
+  const [previewImagen, setPreviewImagen] = useState('');
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [tipoExportacion, setTipoExportacion] = useState('pdf');
   
@@ -66,90 +74,9 @@ const AdminProductosPage = () => {
     stock: '',
     categoriaId: '',
     subcategoriaId: '',
-    imagen: '',
     activo: true
   });
   
-  // Función para formatear número a formato de dinero COP
-  const formatearNumeroCOP = (valor) => {
-    // Eliminar cualquier carácter que no sea número o punto decimal
-    let limpio = valor.toString().replace(/[^0-9.]/g, '');
-    
-    // Manejar múltiples puntos decimales (solo mantener el primero)
-    const partes = limpio.split('.');
-    if (partes.length > 2) {
-      limpio = partes[0] + '.' + partes.slice(1).join('');
-    }
-    
-    // Convertir a número
-    let numero = parseFloat(limpio);
-    if (isNaN(numero)) return '';
-    
-    // Formatear con separadores de miles y decimales
-    return new Intl.NumberFormat('es-CO', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(numero);
-  };
-
-  // Función para convertir formato de dinero a número para el backend
-  const convertirANumero = (valorFormateado) => {
-    if (!valorFormateado) return '';
-    // Eliminar separadores de miles y reemplazar coma decimal por punto
-    let numero = valorFormateado.toString().replace(/\./g, '').replace(/,/g, '.');
-    return parseFloat(numero);
-  };
-
-  // Manejador de cambio específico para el campo precio
-  const handlePrecioChange = (e) => {
-    let valor = e.target.value;
-    
-    // Si el usuario está borrando completamente, permitir campo vacío
-    if (valor === '') {
-      setFormData({ ...formData, precio: '' });
-      return;
-    }
-    
-    // Extraer solo números y punto decimal
-    let numeros = valor.replace(/[^0-9.]/g, '');
-    
-    // Manejar múltiples puntos decimales
-    const partes = numeros.split('.');
-    if (partes.length > 2) {
-      numeros = partes[0] + '.' + partes.slice(1).join('');
-    }
-    
-    // Limitar a 2 decimales
-    if (numeros.includes('.')) {
-      const decimales = numeros.split('.')[1];
-      if (decimales && decimales.length > 2) {
-        numeros = parseFloat(numeros).toFixed(2);
-      }
-    }
-    
-    let numero = parseFloat(numeros);
-    if (isNaN(numero)) {
-      setFormData({ ...formData, precio: '' });
-      return;
-    }
-    
-    // Formatear el número
-    const formateado = new Intl.NumberFormat('es-CO', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(numero);
-    
-    setFormData({ ...formData, precio: formateado });
-  };
-
-  // Función para limpiar el formato al enviar (solo números)
-  const limpiarFormatoPrecio = (precioFormateado) => {
-    if (!precioFormateado) return '';
-    // Eliminar puntos (separadores de miles) y reemplazar coma por punto
-    let numero = precioFormateado.toString().replace(/\./g, '').replace(/,/g, '.');
-    return parseFloat(numero);
-  };
-
   // Productos filtrados
   const productosFiltrados = useMemo(() => {
     return productos.filter(prod => {
@@ -237,13 +164,14 @@ const AdminProductosPage = () => {
       setFormData({
         nombre: producto.nombre,
         descripcion: producto.descripcion || '',
-        precio: formatearNumeroCOP(producto.precio), // Formatear el precio al mostrar
+        precio: producto.precio,
         stock: producto.stock,
-        categoriaId: producto.categoriaId,
+        categoriaId: producto.categoriaId || '',
         subcategoriaId: producto.subcategoriaId || '',
-        imagen: producto.imagen || '',
         activo: producto.activo
       });
+      setImagenArchivo(null);
+      setPreviewImagen(producto.imagen ? getImageUrl(producto.imagen) : '/producto-default.jpg');
     } else {
       setEditando(null);
       setFormData({
@@ -253,9 +181,10 @@ const AdminProductosPage = () => {
         stock: '',
         categoriaId: '',
         subcategoriaId: '',
-        imagen: '',
         activo: true
       });
+      setImagenArchivo(null);
+      setPreviewImagen('');
     }
     setShowModal(true);
   };
@@ -270,41 +199,69 @@ const AdminProductosPage = () => {
       stock: '',
       categoriaId: '',
       subcategoriaId: '',
-      imagen: '',
       activo: true
     });
+    setImagenArchivo(null);
+    setPreviewImagen('');
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let finalValue = value;
+    
+    // Convertir a número para los campos de ID
+    if ((name === 'categoriaId' || name === 'subcategoriaId') && value !== '') {
+      finalValue = parseInt(value, 10);
+    }
+    
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : finalValue
     });
+  };
+
+  const handleImagenChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setImagenArchivo(file);
+
+    if (file) {
+      setPreviewImagen(URL.createObjectURL(file));
+    } else if (editando?.imagen) {
+      setPreviewImagen(getImageUrl(editando.imagen));
+    } else {
+      setPreviewImagen('/producto-default.jpg');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
-      // Limpiar el formato del precio antes de enviar
-      const precioLimpio = limpiarFormatoPrecio(formData.precio);
-      
-      const dataToSend = {
-        ...formData,
-        precio: precioLimpio,
-        stock: parseInt(formData.stock),
-        subcategoriaId: formData.subcategoriaId || null
-      };
+      const formDataToSend = new FormData();
+      formDataToSend.append('nombre', formData.nombre);
+      formDataToSend.append('descripcion', formData.descripcion || '');
+      formDataToSend.append('precio', String(parseFloat(formData.precio)));
+      formDataToSend.append('stock', String(parseInt(formData.stock, 10)));
+      formDataToSend.append('categoriaId', String(formData.categoriaId));
+      formDataToSend.append('subcategoriaId', formData.subcategoriaId || '');
+      formDataToSend.append('activo', String(formData.activo));
+
+      if (imagenArchivo) {
+        formDataToSend.append('imagen', imagenArchivo);
+      }
 
       if (editando) {
-        await api.put(`/admin/productos/${editando.id}`, dataToSend);
+        await api.put(`/admin/productos/${editando.id}`, formDataToSend, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         setMensaje({ tipo: 'success', texto: 'Producto actualizado exitosamente' });
       } else {
-        await api.post('/admin/productos', dataToSend);
+        await api.post('/admin/productos', formDataToSend, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         setMensaje({ tipo: 'success', texto: 'Producto creado exitosamente' });
       }
-      
+
       handleCloseModal();
       loadData();
     } catch (error) {
@@ -393,20 +350,18 @@ const AdminProductosPage = () => {
         </div>
         <div>
           <Dropdown as={ButtonGroup} className="me-2">
-            <Button 
-              variant="success" 
+            <button
+              type="button"
+              className="btn btn-primary"
               onClick={async () => {
-                if (tipoExportacion === 'pdf') {
-                  exportarProductosAPDF(productosFiltrados);
-                } else {
-                  await exportarProductosAExcel(productosFiltrados);
-                }
+                setTipoExportacion('pdf');
+                exportarProductosAPDF(productosFiltrados);
               }}
             >
               <i className={`bi bi-file-earmark-${tipoExportacion === 'pdf' ? 'pdf' : 'excel'} me-1`}></i>
               Exportar a {tipoExportacion === 'pdf' ? 'PDF' : 'Excel'}
-            </Button>
-            <Dropdown.Toggle split variant="success" />
+            </button>
+            <Dropdown.Toggle split variant="secondary" className="btn-dark dropdown-toggle-split" />
             <Dropdown.Menu>
               <Dropdown.Item 
                 onClick={() => {
@@ -428,14 +383,14 @@ const AdminProductosPage = () => {
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
-          <Button variant="outline-secondary" onClick={() => navigate('/admin/dashboard')} className="me-2">
+          <button type="button" className="btn btn-dark me-2" onClick={() => navigate('/admin/dashboard')}>
             <i className="bi bi-arrow-left me-1"></i>
             Volver
-          </Button>
-          <Button variant="primary" onClick={() => handleShowModal()}>
+          </button>
+          <button type="button" className="btn btn-dark" onClick={() => handleShowModal()}>
             <i className="bi bi-plus-circle me-1"></i>
             Nuevo Producto
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -529,9 +484,9 @@ const AdminProductosPage = () => {
               </Form.Group>
             </Col>
             <Col md={12}>
-              <Button
-                variant="outline-secondary"
-                size="sm"
+              <button
+                type="button"
+                className="btn btn-dark btn-sm"
                 onClick={() => {
                   setBusqueda('');
                   setFiltroCategoria('');
@@ -543,7 +498,7 @@ const AdminProductosPage = () => {
               >
                 <i className="bi bi-arrow-clockwise me-1"></i>
                 Limpiar filtros
-              </Button>
+              </button>
             </Col>
           </Row>
         </Card.Body>
@@ -689,16 +644,15 @@ const AdminProductosPage = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Precio <span className="text-danger">*</span></Form.Label>
                   <Form.Control
-                    type="text"
+                    type="number"
                     name="precio"
                     value={formData.precio}
-                    onChange={handlePrecioChange}
+                    onChange={handleChange}
                     required
-                    placeholder="Ej: 1,000,000 o 1,000 o 0.1"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
                   />
-                  <Form.Text className="text-muted">
-                    Puedes escribir números con formato: 1,000,000 (millón), 1,000 (mil) o 0.1 (decimal)
-                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>
@@ -709,13 +663,13 @@ const AdminProductosPage = () => {
                   <Form.Label>Categoría <span className="text-danger">*</span></Form.Label>
                   <Form.Select
                     name="categoriaId"
-                    value={formData.categoriaId}
+                    value={String(formData.categoriaId)}
                     onChange={handleChange}
                     required
                   >
                     <option value="">Seleccionar categoría...</option>
                     {categorias.filter(c => c.activo).map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                      <option key={cat.id} value={String(cat.id)}>{cat.nombre}</option>
                     ))}
                   </Form.Select>
                 </Form.Group>
@@ -725,13 +679,13 @@ const AdminProductosPage = () => {
                   <Form.Label>Subcategoría</Form.Label>
                   <Form.Select
                     name="subcategoriaId"
-                    value={formData.subcategoriaId}
+                    value={String(formData.subcategoriaId)}
                     onChange={handleChange}
                     disabled={!formData.categoriaId}
                   >
                     <option value="">Seleccionar subcategoría...</option>
                     {subcategoriasFiltradas.filter(s => s.activo).map((sub) => (
-                      <option key={sub.id} value={sub.id}>{sub.nombre}</option>
+                      <option key={sub.id} value={String(sub.id)}>{sub.nombre}</option>
                     ))}
                   </Form.Select>
                 </Form.Group>
@@ -755,14 +709,27 @@ const AdminProductosPage = () => {
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>URL de Imagen</Form.Label>
+                  <Form.Label>Imagen del producto</Form.Label>
                   <Form.Control
-                    type="text"
-                    name="imagen"
-                    value={formData.imagen}
-                    onChange={handleChange}
-                    placeholder="https://ejemplo.com/imagen.jpg"
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/gif"
+                    onChange={handleImagenChange}
                   />
+                  {previewImagen && (
+                    <div className="mt-3 border rounded p-2 bg-light text-center">
+                      <img
+                        src={previewImagen}
+                        alt="Vista previa del producto"
+                        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '0.75rem' }}
+                        onError={(e) => {
+                          e.target.src = '/producto-default.jpg';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <Form.Text className="text-muted">
+                    Si no eliges una nueva imagen, se mantendrá la actual.
+                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>

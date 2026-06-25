@@ -5,7 +5,7 @@
  * Gestión del estado global del usuario autenticado
  */
 
-import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useContext, useMemo, useCallback } from 'react';
 import authService from '../services/authService';
 import carritoService from '../services/carritoService';
 
@@ -20,17 +20,8 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Cargar usuario del localStorage al iniciar
-  useEffect(() => {
-    const currentUser = authService.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    }
-    setLoading(false);
-  }, []);
+  const [user, setUser] = useState(() => authService.getCurrentUser());
+  const [loading] = useState(false);
 
   // Login
   const login = useCallback(async (email, password) => {
@@ -47,7 +38,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Error sincronizando carrito:', error);
       }
-    }, 100);
+    }, 500);
     
     return response;
   }, []);
@@ -67,7 +58,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Error sincronizando carrito:', error);
       }
-    }, 100);
+    }, 500);
     
     return response;
   }, []);

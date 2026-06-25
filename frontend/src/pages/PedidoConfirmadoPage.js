@@ -5,7 +5,7 @@
  * Página de confirmación después de realizar un pedido
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Table, Alert, ListGroup } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -20,22 +20,15 @@ const PedidoConfirmadoPage = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    loadPedido();
-  }, [id, isAuthenticated, navigate]);
-
-  const loadPedido = async () => {
+  const loadPedido = useCallback(async () => {
     setLoading(true);
     try {
       const response = await pedidoService.getPedidoById(id);
-      if (response.success && response.data) {
-        setPedido(response.data.pedido || response.data);
-      } else {
+      if (response.success === false) {
         setMensaje({ tipo: 'danger', texto: response.message || 'Error al cargar el pedido' });
+      } else {
+        const pedidoData = response.data?.pedido || response.data || response;
+        setPedido(pedidoData);
       }
     } catch (error) {
       console.error('Error al cargar pedido:', error);
@@ -43,7 +36,15 @@ const PedidoConfirmadoPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    loadPedido();
+  }, [isAuthenticated, navigate, loadPedido]);
 
   const formatearPrecio = (precio) => {
     return new Intl.NumberFormat('es-CO', {
@@ -78,6 +79,7 @@ const PedidoConfirmadoPage = () => {
   const getEstadoTexto = (estado) => {
     const textos = {
       'pendiente': 'Pendiente',
+      'pagado': 'Pagado',
       'confirmado': 'Confirmado',
       'en_proceso': 'En Proceso',
       'enviado': 'Enviado',
@@ -164,8 +166,8 @@ const PedidoConfirmadoPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pedido.detalles && pedido.detalles.map((detalle) => (
-                    <tr key={detalle.id}>
+                  {(Array.isArray(pedido.detalles) ? pedido.detalles : []).map((detalle, index) => (
+                    <tr key={detalle.id || detalle.productoId || `${detalle.producto?.nombre || 'detalle'}-${index}`}>
                       <td>
                         <div className="d-flex align-items-center">
                           <img

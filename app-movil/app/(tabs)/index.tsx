@@ -4,31 +4,33 @@
  * chips de categorias lista de productos a 2 columas paginacion y un modal de detalle de producto
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Image, Platform, RefreshControl, Pressable, ScrollView, StyleSheet, TextInput, View, Text } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 import catalogoService from "../../src/services/catalogoService";
+import apiClient from '../../src/api/apiClient';
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { useCarrito } from '../../src/context/CarritoContext';
 import { useAuth } from '../../src/context/AuthContext';
 import AdminToast from '../../components/admin-toast';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 
 type CarritoCtx = {
     agregarProducto: (producto: unknown, cantidad: number) => Promise<void>;
     totalItems: number;
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_GAP = 10;
 const CARD_WIDTH = (SCREEN_WIDTH - 32 - CARD_GAP) / 2;
 const ITEMS_POR_PAGINA = 15;
 
 export default function HomeScreen() {
     const { agregarProducto, totalItems } = useCarrito() as CarritoCtx;
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth() as any;
+    const detailScrollViewRef = useRef<ScrollView>(null);
 
     const [productos, setProductos] = useState<Array<any>>([]);
     const [categorias, setCategorias] = useState<Array<any>>([]);
@@ -45,6 +47,14 @@ export default function HomeScreen() {
     const [selectorAbierto, setSelectorAbierto] = useState(false);
     const [productoDetalle, setProductoDetalle] = useState<any>(null);
     const [paginaActual, setPaginaActual] = useState(1);
+
+    const [comentariosProducto, setComentariosProducto] = useState<Array<any>>([]);
+    const [cargandoComentarios, setCargandoComentarios] = useState(false);
+    const [esElegibleComentar, setEsElegibleComentar] = useState(false);
+    const [comentarioTexto, setComentarioTexto] = useState('');
+    const [calificacionSeleccionada, setCalificacionSeleccionada] = useState(5);
+    const [enviandoComentario, setEnviandoComentario] = useState(false);
+    const [miComentarioId, setMiComentarioId] = useState<number | null>(null);
 
     const [dropdownOrdenOpen, setDropdownOrdenOpen] = useState(false);
     const [textoBuscarOrden, setTextoBuscarOrden] = useState('');
@@ -142,13 +152,150 @@ export default function HomeScreen() {
         }
     };
 
+    const navigation = useNavigation();
+
     useEffect(() => {
         loadCatalogo();
-    }, []);
+        const unsubscribe = navigation.addListener('focus', () => {
+            loadCatalogo();
+        });
+        return unsubscribe;
+    }, [navigation]);
 
     useEffect(() => {
         setPaginaActual(1);
     }, [busqueda, categoriaActiva, subcategoriaActiva, ordenarPor]);
+
+    const loadComentarios = async (productoId: number) => {
+        setCargandoComentarios(true);
+        try {
+            const response = await apiClient.get(`/catalogo/productos/${productoId}/comentarios`);
+            const list = response.data?.data?.comentarios || response.data?.comentarios || [];
+            setComentariosProducto(list);
+            
+            // Si el usuario está autenticado, busca si ya comentó este producto
+            if (user) {
+                const miComment = list.find((c: any) => String(c.usuarioId) === String(user.id));
+                if (miComment) {
+                    setMiComentarioId(miComment.id);
+                    setComentarioTexto(miComment.comentario);
+                    setCalificacionSeleccionada(miComment.calificacion);
+                } else {
+                    setMiComentarioId(null);
+                }
+            }
+        } catch (error) {
+            console.error('Error al cargar comentarios:', error);
+        } finally {
+            setCargandoComentarios(false);
+        }
+    };
+
+    const checkElegibilidadComentario = async (productoId: number) => {
+        try {
+            const response = await apiClient.get('/cliente/pedidos?estado=entregado&limite=200');
+            const pedidos = response.data?.data?.pedidos || response.data?.pedidos || [];
+            
+            const hasPurchased = pedidos.some((pedido: any) =>
+                pedido.detalles?.some((detalle: any) => detalle.productoId === productoId)
+            );
+            
+            setEsElegibleComentar(hasPurchased);
+        } catch (error) {
+            console.error('Error al verificar elegibilidad de comentarios:', error);
+            setEsElegibleComentar(false);
+        }
+    };
+
+    const handleSubmitComentario = async () => {
+        if (!comentarioTexto.trim()) {
+            Alert.alert('Error', 'El comentario no puede estar vacío');
+            return;
+        }
+
+        setEnviandoComentario(true);
+        try {
+            if (miComentarioId) {
+                const response = await apiClient.put(`/cliente/comentarios/${miComentarioId}`, {
+                    comentario: comentarioTexto.trim(),
+                    calificacion: calificacionSeleccionada
+                });
+
+                if (response.data?.success) {
+                    showToast('Comentario actualizado exitosamente', 'success');
+                    loadComentarios(productoDetalle.id);
+                }
+            } else {
+                const response = await apiClient.post('/cliente/comentarios', {
+                    productoId: productoDetalle.id,
+                    comentario: comentarioTexto.trim(),
+                    calificacion: calificacionSeleccionada
+                });
+
+                if (response.data?.success || response.data?.id) {
+                    showToast('Comentario agregado exitosamente', 'success');
+                    setComentarioTexto('');
+                    setCalificacionSeleccionada(5);
+                    setEsElegibleComentar(false);
+                    loadComentarios(productoDetalle.id);
+                }
+            }
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'No se pudo guardar el comentario');
+        } finally {
+            setEnviandoComentario(false);
+        }
+    };
+
+    const handleEliminarComentario = async () => {
+        if (!miComentarioId) return;
+
+        Alert.alert(
+            'Confirmar',
+            '¿Estás seguro de que deseas desactivar tu comentario? Ya no será visible para otros usuarios.',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Confirmar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setEnviandoComentario(true);
+                        try {
+                            const response = await apiClient.delete(`/cliente/comentarios/${miComentarioId}`);
+                            if (response.data?.success) {
+                                showToast('Comentario desactivado exitosamente', 'success');
+                                setComentarioTexto('');
+                                setCalificacionSeleccionada(5);
+                                setMiComentarioId(null);
+                                loadComentarios(productoDetalle.id);
+                            }
+                        } catch (error: any) {
+                            Alert.alert('Error', error.message || 'No se pudo desactivar el comentario');
+                        } finally {
+                            setEnviandoComentario(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    useEffect(() => {
+        if (productoDetalle) {
+            loadComentarios(productoDetalle.id);
+            if (isAuthenticated) {
+                checkElegibilidadComentario(productoDetalle.id);
+            } else {
+                setEsElegibleComentar(false);
+            }
+        } else {
+            setComentariosProducto([]);
+            setEsElegibleComentar(false);
+            setComentarioTexto('');
+            setCalificacionSeleccionada(5);
+            setMiComentarioId(null);
+        }
+    }, [productoDetalle, isAuthenticated]);
 
     const productosFiltrados = useMemo(() => {
         const termino = busqueda.trim().toLowerCase();
@@ -596,10 +743,18 @@ export default function HomeScreen() {
                     animationType="slide"
                     statusBarTranslucent
                     onRequestClose={() => setProductoDetalle(null)}>
-                    <Pressable style={styles.modalBackdrop} onPress={() => setProductoDetalle(null)}>
-                        <Pressable style={styles.modalCardWrapper} onPress={() => {}}>
+                    <View style={styles.modalBackdrop}>
+                        {/* Backdrop clicable absoluto e independiente */}
+                        <Pressable 
+                            style={StyleSheet.absoluteFillObject} 
+                            onPress={() => setProductoDetalle(null)} 
+                        />
+                        {/* Tarjeta del modal independiente para evitar conflictos de gestos de scroll */}
+                        <View style={styles.modalCardWrapper}>
                             <ThemedView style={styles.modalCard}>
                                 <ScrollView
+                                    ref={detailScrollViewRef}
+                                    style={styles.modalScroll}
                                     scrollEnabled={true}
                                     showsVerticalScrollIndicator={false}
                                     contentContainerStyle={{ paddingBottom: 16 }}>
@@ -626,6 +781,166 @@ export default function HomeScreen() {
                                             Stock máximo disponible: {productoDetalle.stock ?? 'N/A'} unidades
                                         </ThemedText>
                                     </View>
+
+                                    {/* Botón de salto rápido a comentarios */}
+                                    <Pressable 
+                                        style={styles.ratingScrollButton}
+                                        onPress={() => detailScrollViewRef.current?.scrollToEnd({ animated: true })}
+                                    >
+                                        <Ionicons name="chatbubbles-outline" size={16} color="#d4956a" />
+                                        <ThemedText style={styles.ratingScrollButtonText}>
+                                            Ver opiniones y calificaciones ({comentariosProducto.length})
+                                        </ThemedText>
+                                    </Pressable>
+
+                                    {/* DIVIDER Y SECCIÓN COMENTARIOS */}
+                                    <View style={styles.divider} />
+
+                                    <View style={styles.commentsSection}>
+                                        <ThemedText style={styles.commentsHeader}>
+                                            Comentarios y Calificaciones
+                                        </ThemedText>
+                                        
+                                        {comentariosProducto.length > 0 ? (
+                                            <ThemedText style={styles.commentsSub}>
+                                                ⭐ {(comentariosProducto.reduce((s, c) => s + c.calificacion, 0) / comentariosProducto.length).toFixed(1)} de 5 estrellas ({comentariosProducto.length} {comentariosProducto.length === 1 ? 'comentario' : 'comentarios'})
+                                            </ThemedText>
+                                        ) : (
+                                            <ThemedText style={styles.commentsSub}>
+                                                Sin calificaciones aún
+                                            </ThemedText>
+                                        )}
+
+                                        {cargandoComentarios ? (
+                                            <ActivityIndicator size="small" color="#d4956a" style={{ marginVertical: 16 }} />
+                                        ) : (
+                                            <View>
+                                                {comentariosProducto.map((item) => (
+                                                    <View key={item.id} style={styles.commentCard}>
+                                                        <View style={styles.commentCardHeader}>
+                                                            <ThemedText style={styles.commentAuthor}>
+                                                                {item.autor}
+                                                            </ThemedText>
+                                                            <ThemedText style={styles.commentDate}>
+                                                                {new Date(item.fecha).toLocaleDateString('es-CO')}
+                                                            </ThemedText>
+                                                        </View>
+                                                        <View style={styles.commentStars}>
+                                                            {Array.from({ length: 5 }).map((_, idx) => (
+                                                                <Ionicons
+                                                                    key={idx}
+                                                                    name={idx < item.calificacion ? 'star' : 'star-outline'}
+                                                                    size={12}
+                                                                    color="#d4956a"
+                                                                    style={{ marginRight: 2 }}
+                                                                />
+                                                            ))}
+                                                        </View>
+                                                        <ThemedText style={styles.commentText}>
+                                                            {item.comentario}
+                                                        </ThemedText>
+                                                    </View>
+                                                ))}
+
+                                                {comentariosProducto.length === 0 && (
+                                                    <ThemedText style={styles.noComments}>
+                                                        Aún no hay comentarios. ¡Sé el primero en calificarlo!
+                                                    </ThemedText>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* FORMULARIO PARA CALIFICAR Y COMENTAR */}
+                                    <View style={styles.divider} />
+                                    
+                                    <ThemedText style={styles.formHeader}>
+                                        {miComentarioId ? 'Editar tu Opinión' : 'Calificar Producto'}
+                                    </ThemedText>
+
+                                    {isAuthenticated ? (
+                                        (esElegibleComentar || miComentarioId !== null) ? (
+                                            <View>
+                                                <View style={styles.starsSelectRow}>
+                                                    <ThemedText style={styles.starsSelectLabel}>
+                                                        Tu Calificación:
+                                                    </ThemedText>
+                                                    <View style={styles.starsSelectWrap}>
+                                                        {Array.from({ length: 5 }).map((_, idx) => {
+                                                            const ratingVal = idx + 1;
+                                                            return (
+                                                                <Pressable 
+                                                                    key={idx} 
+                                                                    onPress={() => setCalificacionSeleccionada(ratingVal)}
+                                                                    style={{ padding: 4 }}
+                                                                >
+                                                                    <Ionicons
+                                                                        name={ratingVal <= calificacionSeleccionada ? 'star' : 'star-outline'}
+                                                                        size={24}
+                                                                        color="#d4956a"
+                                                                    />
+                                                                </Pressable>
+                                                            );
+                                                        })}
+                                                    </View>
+                                                </View>
+
+                                                <TextInput
+                                                    placeholder="Escribe tu opinión sobre el producto (máx. 200 caracteres)..."
+                                                    placeholderTextColor="#b8a99a"
+                                                    value={comentarioTexto}
+                                                    onChangeText={setComentarioTexto}
+                                                    maxLength={200}
+                                                    multiline
+                                                    style={styles.formInput}
+                                                />
+
+                                                <View style={styles.formActions}>
+                                                    {miComentarioId && (
+                                                        <Pressable 
+                                                            style={[styles.outlineBtn, { flex: 1, borderColor: '#e07070', paddingVertical: 10 }]}
+                                                            onPress={handleEliminarComentario}
+                                                            disabled={enviandoComentario}
+                                                        >
+                                                            <ThemedText style={[styles.outlineBtnText, { color: '#e07070' }]}>
+                                                                Eliminar
+                                                            </ThemedText>
+                                                        </Pressable>
+                                                    )}
+                                                    <Pressable 
+                                                        style={[styles.formBtn, { flex: miComentarioId ? 2 : 1, opacity: enviandoComentario ? 0.7 : 1 }]}
+                                                        onPress={handleSubmitComentario}
+                                                        disabled={enviandoComentario}
+                                                    >
+                                                        {enviandoComentario ? (
+                                                            <ActivityIndicator size="small" color="#fff" />
+                                                        ) : (
+                                                            <>
+                                                                <Ionicons name="chatbubble-ellipses-outline" size={16} color="#fff" />
+                                                                <ThemedText style={styles.formBtnText}>
+                                                                    {miComentarioId ? 'Actualizar' : 'Publicar'}
+                                                                </ThemedText>
+                                                            </>
+                                                        )}
+                                                    </Pressable>
+                                                </View>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.infoBanner}>
+                                                <Ionicons name="information-circle-outline" size={18} color="#7c6455" />
+                                                <ThemedText style={styles.infoBannerText}>
+                                                    Solo puedes calificar y comentar productos que hayas comprado previamente y cuyo pedido se encuentre en estado "Entregado".
+                                                </ThemedText>
+                                            </View>
+                                        )
+                                    ) : (
+                                        <View style={styles.infoBanner}>
+                                            <Ionicons name="lock-closed-outline" size={18} color="#7c6455" />
+                                            <ThemedText style={styles.infoBannerText}>
+                                                Inicia sesión para opinar sobre este producto.
+                                            </ThemedText>
+                                        </View>
+                                    )}
                                 </ScrollView>
                                 <View style={styles.modalActions}>
                                     <Pressable
@@ -647,8 +962,8 @@ export default function HomeScreen() {
                                     </Pressable>
                                 </View>
                             </ThemedView>
-                        </Pressable>
-                    </Pressable>
+                        </View>
+                    </View>
                 </Modal>
             )}
 
@@ -1102,6 +1417,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
+    width: '100%',
   },
   modalCard: {
     padding: 24,
@@ -1109,6 +1425,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    maxHeight: SCREEN_HEIGHT * 0.82,
+  },
+  modalScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   modalImage: {
     width: '100%',
@@ -1162,5 +1483,148 @@ const styles = StyleSheet.create({
   dropdownItemActive: { backgroundColor: '#fff3e6' },
   dropdownItemText: { fontSize: 13, color: '#3d2c1e', fontWeight: '500' },
   dropdownItemTextActive: { color: '#d4956a', fontWeight: '700' },
+
+  // Comentarios Styles
+  commentsSection: {
+    marginTop: 8,
+  },
+  commentsHeader: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#3d2c1e',
+    marginBottom: 4,
+  },
+  commentsSub: {
+    fontSize: 13,
+    color: '#9e8879',
+    marginBottom: 12,
+  },
+  commentCard: {
+    backgroundColor: '#fffcf9',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#f0ede8',
+    marginBottom: 8,
+  },
+  commentCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  commentAuthor: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3d2c1e',
+  },
+  commentDate: {
+    fontSize: 11,
+    color: '#9e8879',
+  },
+  commentStars: {
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  commentText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#5c4d40',
+  },
+  noComments: {
+    fontSize: 13,
+    color: '#9e8879',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e8ddd5',
+    marginVertical: 16,
+  },
+  formHeader: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#3d2c1e',
+    marginBottom: 10,
+  },
+  starsSelectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  starsSelectLabel: {
+    fontSize: 13,
+    color: '#7c6455',
+    fontWeight: '600',
+  },
+  starsSelectWrap: {
+    flexDirection: 'row',
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#e8ddd5',
+    borderRadius: 12,
+    padding: 10,
+    minHeight: 70,
+    fontSize: 13,
+    color: '#3d2c1e',
+    backgroundColor: '#fdf8f4',
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  formBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#d4956a',
+    borderRadius: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  formBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  formActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  ratingScrollButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3e6',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  ratingScrollButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#d4956a',
+  },
+  infoBanner: {
+    backgroundColor: '#f5efe9',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  infoBannerText: {
+    fontSize: 12,
+    color: '#7c6455',
+    flex: 1,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
 });
 

@@ -1,8 +1,8 @@
 /**
  * ============================================
- * REGISTER PAGE
+ * REGISTER PAGE - Adaptado a la paleta del proyecto
  * ============================================
- * Página de registro de nuevos usuarios
+ * Página de registro de nuevos usuarios con estilos personalizados (dorados, fondos)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -29,7 +29,6 @@ const RegisterPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Verificar si hay items en el carrito local
     const carritoLocal = JSON.parse(localStorage.getItem('carrito_local') || '[]');
     setTieneCarrito(carritoLocal.length > 0);
   }, []);
@@ -45,7 +44,6 @@ const RegisterPage = () => {
     e.preventDefault();
     setError('');
 
-    // Validaciones
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
@@ -71,10 +69,13 @@ const RegisterPage = () => {
     try {
       const { confirmPassword, ...userData } = formData;
       await register(userData);
-      navigate('/catalogo');
+      
+      // Dar tiempo a React de actualizar el estado antes de navegar
+      setTimeout(() => {
+        navigate('/catalogo');
+      }, 200);
     } catch (err) {
       setError(err.message || 'Error al registrarse');
-    } finally {
       setLoading(false);
     }
   };
@@ -83,20 +84,20 @@ const RegisterPage = () => {
     <Container className="py-5">
       <Row className="justify-content-center">
         <Col md={8} lg={6}>
-          <Card className="shadow">
+          <Card className="register-card shadow">
             <Card.Body className="p-5">
               <div className="text-center mb-4">
-                <h2>
+                <h2 className="register-title">
                   <i className="bi bi-person-plus me-2"></i>
                   Crear Cuenta
                 </h2>
-                <p className="text-muted">Regístrate para empezar a comprar</p>
+                <p className="register-subtitle">Regístrate para empezar a comprar</p>
               </div>
 
-              {error && <Alert variant="danger">{error}</Alert>}
+              {error && <Alert variant="danger" className="register-alert">{error}</Alert>}
 
               {tieneCarrito && (
-                <Alert variant="success" className="mb-3">
+                <Alert variant="success" className="register-alert-success mb-3">
                   <i className="bi bi-cart-check me-2"></i>
                   Tu carrito se sincronizará automáticamente al crear tu cuenta
                 </Alert>
@@ -106,32 +107,34 @@ const RegisterPage = () => {
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label>Nombre *</Form.Label>
+                      <Form.Label className="register-label">Nombre *</Form.Label>
                       <Form.Control
                         type="text"
                         name="nombre"
                         value={formData.nombre}
                         onChange={handleChange}
                         required
+                        className="register-input"
                       />
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label>Apellido *</Form.Label>
+                      <Form.Label className="register-label">Apellido *</Form.Label>
                       <Form.Control
                         type="text"
                         name="apellido"
                         value={formData.apellido}
                         onChange={handleChange}
                         required
+                        className="register-input"
                       />
                     </Form.Group>
                   </Col>
                 </Row>
 
                 <Form.Group className="mb-3">
-                  <Form.Label>Email *</Form.Label>
+                  <Form.Label className="register-label">Email *</Form.Label>
                   <Form.Control
                     type="email"
                     name="email"
@@ -139,13 +142,14 @@ const RegisterPage = () => {
                     value={formData.email}
                     onChange={handleChange}
                     required
+                    className="register-input"
                   />
                 </Form.Group>
 
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label>Contraseña *</Form.Label>
+                      <Form.Label className="register-label">Contraseña *</Form.Label>
                       <Form.Control
                         type="password"
                         name="password"
@@ -153,25 +157,27 @@ const RegisterPage = () => {
                         value={formData.password}
                         onChange={handleChange}
                         required
+                        className="register-input"
                       />
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label>Confirmar Contraseña *</Form.Label>
+                      <Form.Label className="register-label">Confirmar Contraseña *</Form.Label>
                       <Form.Control
                         type="password"
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleChange}
                         required
+                        className="register-input"
                       />
                     </Form.Group>
                   </Col>
                 </Row>
 
                 <Form.Group className="mb-3">
-                  <Form.Label>Teléfono</Form.Label>
+                  <Form.Label className="register-label">Teléfono</Form.Label>
                   <Form.Control
                     type="text"
                     name="telefono"
@@ -179,14 +185,15 @@ const RegisterPage = () => {
                     value={formData.telefono}
                     onChange={handleChange}
                     maxLength="10"
+                    className="register-input"
                   />
-                  <Form.Text className="text-muted">
+                  <Form.Text className="register-hint">
                     10 dígitos, iniciando con 3
                   </Form.Text>
                 </Form.Group>
 
                 <Form.Group className="mb-3">
-                  <Form.Label>Dirección</Form.Label>
+                  <Form.Label className="register-label">Dirección</Form.Label>
                   <Form.Control
                     as="textarea"
                     rows={2}
@@ -194,13 +201,13 @@ const RegisterPage = () => {
                     placeholder="Calle 123 #45-67"
                     value={formData.direccion}
                     onChange={handleChange}
+                    className="register-input"
                   />
                 </Form.Group>
 
                 <Button
-                  variant="primary"
                   type="submit"
-                  className="w-100 mb-3"
+                  className="register-btn w-100 mb-3"
                   disabled={loading}
                 >
                   {loading ? (
@@ -217,11 +224,11 @@ const RegisterPage = () => {
                 </Button>
               </Form>
 
-              <hr />
+              <hr className="register-hr" />
 
               <div className="text-center">
                 <p className="mb-2">¿Ya tienes cuenta?</p>
-                <Link to="/login" className="btn btn-outline-primary w-100">
+                <Link to="/login" className="register-link-outline">
                   <i className="bi bi-box-arrow-in-right me-2"></i>
                   Iniciar Sesión
                 </Link>
@@ -230,6 +237,102 @@ const RegisterPage = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Estilos personalizados usando variables globales */}
+      <style jsx>{`
+        .register-card {
+          background: var(--bg, #ffffff);
+          border-radius: 1.5rem;
+          border: none;
+          transition: var(--transition, all 0.3s ease);
+          overflow: hidden;
+        }
+        .register-title {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          font-weight: 700;
+        }
+        .register-subtitle {
+          color: var(--bg-negativo, #192847);
+          opacity: 0.8;
+        }
+        .register-label {
+          font-weight: 600;
+          color: var(--bg-negativo, #192847);
+        }
+        .register-input {
+          border-radius: 0.75rem;
+          border: 1px solid var(--gray-300, #d1d5db);
+          padding: 0.625rem 1rem;
+          transition: all 0.3s ease;
+          background-color: var(--bg, #ffffff);
+        }
+        .register-input:focus {
+          border-color: var(--bs-gold, #f5c271);
+          box-shadow: 0 0 0 3px rgba(145, 105, 52, 0.1);
+        }
+        .register-hint {
+          color: var(--gray-600, #4b5563);
+          font-size: 0.75rem;
+        }
+        .register-btn {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          border: none;
+          border-radius: 0.75rem;
+          padding: 0.625rem;
+          font-weight: 600;
+          color: var(--fnt-black, #000000);
+          transition: all 0.3s ease;
+        }
+        .register-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, var(--bs-gold-dark, #c7984e), var(--bs-oldGold-bg, #916934));
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px 0 rgba(145, 105, 52, 0.3);
+        }
+        .register-btn:active {
+          transform: translateY(0);
+        }
+        .register-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        .register-link-outline {
+          display: inline-block;
+          width: 100%;
+          text-align: center;
+          background: transparent;
+          border: 2px solid var(--bs-gold, #f5c271);
+          color: var(--bs-gold-dark, #c7984e);
+          border-radius: 0.75rem;
+          padding: 0.625rem;
+          font-weight: 600;
+          text-decoration: none;
+          transition: all 0.3s ease;
+        }
+        .register-link-outline:hover {
+          background: var(--bs-gold, #f5c271);
+          color: var(--fnt-black, #000000);
+          transform: translateY(-2px);
+        }
+        .register-alert {
+          border-radius: 0.75rem;
+          background-color: #f8d7da;
+          border: none;
+          color: #721c24;
+        }
+        .register-alert-success {
+          border-radius: 0.75rem;
+          background-color: #d4edda;
+          border: none;
+          color: #155724;
+        }
+        .register-hr {
+          background-color: var(--gray-300, #d1d5db);
+          opacity: 0.5;
+        }
+      `}</style>
     </Container>
   );
 };

@@ -39,7 +39,7 @@ const sequelize = new Sequelize(
     // dialect: indica a Sequelize qué tipo de base de datos usamos
     // Opciones posibles: 'mysql', 'postgres', 'sqlite', 'mariadb', 'mssql'
     dialect: 'mysql',
-    
+
     // pool: configuración del pool (grupo) de conexiones.
     // El pool mantiene varias conexiones abiertas y las reutiliza,
     // evitando abrir y cerrar conexiones constantemente (mejora rendimiento).
@@ -55,26 +55,26 @@ const sequelize = new Sequelize(
       // Si pasa más de 10s inactiva, se cierra para liberar recursos
       idle: 10000
     },
-    
+
     // logging: controla si se muestran las consultas SQL en la consola.
     // Si NODE_ENV (variable de .env) es 'development', muestra las queries con console.log
     // En cualquier otro entorno (producción, testing), no muestra nada (false)
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
-    
+
     // timezone: zona horaria para las fechas almacenadas en la BD.
     // '-05:00' corresponde a la zona horaria de Colombia (UTC-5)
     timezone: '-05:00',
-    
+
     // define: opciones que se aplican a TODOS los modelos por defecto
     define: {
       // timestamps: true hace que Sequelize agregue automáticamente
       // las columnas 'createdAt' y 'updatedAt' a cada tabla
       timestamps: true,
-      
+
       // underscored: false significa que los nombres de columnas usan camelCase
       // Ejemplo: createdAt (false/camelCase) vs created_at (true/snake_case)
       underscored: false,
-      
+
       // freezeTableName: true usa el nombre exacto del modelo como nombre de tabla.
       // Sin esto, Sequelize pluraliza automáticamente (Usuario -> Usuarios)
       // Con true: modelo 'Usuario' crea tabla 'Usuario' (sin pluralizar)
@@ -120,7 +120,7 @@ const syncDatabase = async (force = false, alter = false) => {
     // { alter: true } = ALTER TABLE (modifica columnas sin borrar datos)
     // { } (sin opciones) = CREATE TABLE IF NOT EXISTS (solo crea si no existe)
     await sequelize.sync({ force, alter });
-    
+
     // Muestra mensaje según el tipo de sincronización realizada
     if (force) {
       console.log('🔄 Base de datos sincronizada (todas las tablas recreadas).');
@@ -129,7 +129,7 @@ const syncDatabase = async (force = false, alter = false) => {
     } else {
       console.log('✅ Base de datos sincronizada correctamente.');
     }
-    
+
     return true;
   } catch (error) {
     console.error('❌ Error al sincronizar la base de datos:', error.message);

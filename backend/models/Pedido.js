@@ -192,6 +192,75 @@ const Pedido = sequelize.define('Pedido', {
       if (pedido.changed('estado') && pedido.estado === 'pagado' && !pedido.fechaPago) {
         pedido.fechaPago = new Date();               // Asigna la fecha/hora actual
         await pedido.save({ hooks: false });         // Guarda SIN ejecutar hooks (evita ciclo)
+        
+        // Crear factura automáticamente cuando se paga
+        try {
+          const Factura = require('./Factura');
+          const DetallePedido = require('./DetallePedido');
+          const Producto = require('./Producto');
+          const Usuario = require('./Usuario');
+          
+          // Obtener detalles del pedido
+          const detalles = await DetallePedido.findAll({
+            where: { pedidoId: pedido.id },
+            include: [{ model: Producto, as: 'producto' }]
+          });
+          
+          // Obtener usuario
+          const usuario = await Usuario.findByPk(pedido.usuarioId);
+          
+          // Generar número de factura
+          const ultimaFactura = await Factura.findOne({
+            order: [['id', 'DESC']]
+          });
+          const numeroSecuencial = (ultimaFactura?.id || 0) + 1;
+          const ano = new Date().getFullYear();
+          const numeroFactura = `FAC-${ano}-${String(numeroSecuencial).padStart(5, '0')}`;
+          
+          // Preparar detalles para JSON
+          const detallesJSON = detalles.map(det => ({
+            productoId: det.producto.id,
+            nombre: det.producto.nombre,
+            cantidad: det.cantidad,
+            precioUnitario: det.precioUnitario,
+            subtotal: det.subtotal
+          }));
+          
+          // Calcular impuesto (19%)
+          const subtotal = parseFloat(pedido.total) / 1.19;
+          const impuesto = pedido.total - subtotal;
+          
+          // Crear factura
+          const factura = await Factura.create({
+            pedidoId: pedido.id,
+            numeroFactura,
+            clienteNombre: usuario.nombre,
+            clienteEmail: usuario.email,
+            clienteDocumento: usuario.cedula || null,
+            direccionEnvio: pedido.direccionEnvio,
+            telefonoEnvio: pedido.telefono,
+            subtotal: subtotal.toFixed(2),
+            impuesto: impuesto.toFixed(2),
+            total: pedido.total,
+            metodoPago: pedido.metodoPago,
+            referenciaPago: null, // Se puede llenar con info de pago si se integra con pasarela
+            estado: 'emitida',
+            detalles: detallesJSON
+          });
+
+          try {
+            const { generarFacturaPDF } = require('../services/pdfService');
+            const rutaPDF = await generarFacturaPDF(factura.dataValues, true);
+            await factura.update({ rutaPDF }, { hooks: false });
+          } catch (pdfError) {
+            console.error('❌ Error generando PDF automático:', pdfError.message);
+          }
+          
+          console.log(`✅ Factura ${numeroFactura} creada automáticamente para pedido ${pedido.id}`);
+        } catch (error) {
+          console.error('❌ Error creando factura automática:', error.message);
+          // No lanzamos error para que el pedido se guarde de todas formas
+        }
       }
       
       // Si el estado cambió a 'enviado' y aún no tiene fecha de envío
@@ -261,7 +330,7 @@ Pedido.prototype.puedeSerCancelado = function() {
  * 4. Cambia el estado a 'cancelado'
  * @returns {Promise<Pedido>} Pedido cancelado
  */
-Pedido.prototype.cancelar = async function() {
+Pedido.prototype.cancelar = async function(transaction = null) {
   // Si no se puede cancelar (ya enviado/entregado), lanza error
   if (!this.puedeSerCancelado()) {
     throw new Error('Este pedido no puede ser cancelado');
@@ -273,24 +342,29 @@ Pedido.prototype.cancelar = async function() {
   
   // Obtiene todos los detalles (líneas) de este pedido
   // findAll → SELECT * FROM detalle_pedidos WHERE pedidoId = this.id
-  const detalles = await DetallePedido.findAll({
-    where: { pedidoId: this.id }
-  });
+  const opciones = transaction
+    ? { where: { pedidoId: this.id }, transaction }
+    : { where: { pedidoId: this.id } };
+  const detalles = await DetallePedido.findAll(opciones);
   
   // Recorre cada detalle y devuelve el stock al producto
   for (const detalle of detalles) {
     // Busca el producto en la BD
-    const producto = await Producto.findByPk(detalle.productoId);
+    const opcionesProducto = transaction ? { transaction } : {};
+    const producto = await Producto.findByPk(detalle.productoId, opcionesProducto);
     if (producto) {
       // aumentarStock() suma la cantidad de vuelta al stock del producto
-      await producto.aumentarStock(detalle.cantidad);
+      await producto.aumentarStock(detalle.cantidad, transaction);
       console.log(`  ↳ Stock devuelto: ${detalle.cantidad} x ${producto.nombre}`);
     }
   }
   
-  // Cambia el estado a 'cancelado'
+  // Cambia el estado a 'cancelado' sin disparar hooks
   this.estado = 'cancelado';
-  return await this.save();            // Guarda en la BD
+  const opcionesGuardar = transaction 
+    ? { transaction, hooks: false }
+    : { hooks: false };
+  return await this.save(opcionesGuardar);
 };
 
 /**

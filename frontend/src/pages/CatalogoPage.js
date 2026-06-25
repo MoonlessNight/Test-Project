@@ -1,8 +1,8 @@
 /**
  * ============================================
- * CATALOGO PAGE
+ * CATALOGO PAGE - Adaptado a la paleta del proyecto
  * ============================================
- * Catálogo de productos con filtros
+ * Catálogo de productos con filtros y estilos personalizados (dorados, fondos)
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -35,13 +35,14 @@ const CatalogoPage = () => {
   const { isAuthenticated, isCliente } = useAuth();
   const navigate = useNavigate();
 
-  // Función para cargar productos (no depende de state)
   const fetchProductos = useCallback(async (filtrosActuales) => {
     setLoading(true);
     try {
       const response = await catalogoService.getProductos(filtrosActuales);
-      setProductos(response.data.productos);
-      setPaginacion(response.data.paginacion);
+      const payload = response.data || response;
+      const data = payload.data || payload;
+      setProductos(data.productos || []);
+      setPaginacion(data.paginacion || { total: 0, pagina: 1, totalPaginas: 1 });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error('Error al cargar productos:', error);
@@ -69,19 +70,15 @@ const CatalogoPage = () => {
     }
   }, []);
 
-  // Cargar categorías al montar
   useEffect(() => {
     loadCategorias();
   }, [loadCategorias]);
 
-  // Aplicar filtros automáticamente cuando cambien (incluye carga inicial)
   useEffect(() => {
-    // Limpiar timeout anterior
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
-    // Aplicar debounce solo a búsqueda de texto (y solo después del primer render)
     const delay = filtros.buscar && !isInitialMount.current ? 500 : 0;
     
     debounceRef.current = setTimeout(() => {
@@ -96,7 +93,6 @@ const CatalogoPage = () => {
     };
   }, [filtros, fetchProductos]);
 
-  // Cargar subcategorías cuando cambie la categoría
   useEffect(() => {
     if (filtros.categoriaId) {
       loadSubcategorias(filtros.categoriaId);
@@ -110,7 +106,7 @@ const CatalogoPage = () => {
     setFiltros(prevFiltros => ({
       ...prevFiltros,
       [e.target.name]: e.target.value,
-      pagina: 1, // Resetear a página 1 cuando cambian los filtros
+      pagina: 1,
     }));
   }, []);
 
@@ -135,12 +131,10 @@ const CatalogoPage = () => {
       await carritoService.agregarAlCarrito(producto.id, 1, producto);
       setMensaje({ tipo: 'success', texto: `${producto.nombre} agregado al carrito` });
       
-      // Limpiar timeout anterior si existe
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
       
-      // Establecer nuevo timeout
       timeoutRef.current = setTimeout(() => {
         setMensaje({ tipo: '', texto: '' });
       }, 3000);
@@ -149,7 +143,6 @@ const CatalogoPage = () => {
     }
   }, []);
 
-  // Limpiar timeout al desmontar
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
@@ -160,7 +153,7 @@ const CatalogoPage = () => {
 
   return (
     <Container className="py-4">
-      <h1 className="mb-4">
+      <h1 className="catalogo-title mb-4">
         <i className="bi bi-grid me-2"></i>
         Catálogo de Productos
       </h1>
@@ -174,30 +167,32 @@ const CatalogoPage = () => {
       <Row>
         {/* Filtros laterales */}
         <Col md={3} className="mb-4">
-          <div className="bg-light p-3 rounded">
-            <h5 className="mb-3">
+          <div className="filtros-card p-3 rounded">
+            <h5 className="filtros-title mb-3">
               <i className="bi bi-funnel me-2"></i>
               Filtros
             </h5>
 
             <Form>
               <Form.Group className="mb-3">
-                <Form.Label>Buscar</Form.Label>
+                <Form.Label className="filtros-label">Buscar</Form.Label>
                 <Form.Control
                   type="text"
                   name="buscar"
                   placeholder="Nombre del producto..."
                   value={filtros.buscar}
                   onChange={handleFiltroChange}
+                  className="filtros-input"
                 />
               </Form.Group>
 
               <Form.Group className="mb-3">
-                <Form.Label>Categoría</Form.Label>
+                <Form.Label className="filtros-label">Categoría</Form.Label>
                 <Form.Select
                   name="categoriaId"
                   value={filtros.categoriaId}
                   onChange={handleFiltroChange}
+                  className="filtros-select"
                 >
                   <option value="">Todas las categorías</option>
                   {categorias.map((cat) => (
@@ -210,11 +205,12 @@ const CatalogoPage = () => {
 
               {subcategorias.length > 0 && (
                 <Form.Group className="mb-3">
-                  <Form.Label>Subcategoría</Form.Label>
+                  <Form.Label className="filtros-label">Subcategoría</Form.Label>
                   <Form.Select
                     name="subcategoriaId"
                     value={filtros.subcategoriaId}
                     onChange={handleFiltroChange}
+                    className="filtros-select"
                   >
                     <option value="">Todas las subcategorías</option>
                     {subcategorias.map((sub) => (
@@ -227,8 +223,7 @@ const CatalogoPage = () => {
               )}
 
               <Button
-                variant="outline-secondary"
-                className="w-100"
+                className="btn-limpiar-filtros w-100"
                 onClick={handleLimpiarFiltros}
               >
                 <i className="bi bi-x-circle me-2"></i>
@@ -267,10 +262,9 @@ const CatalogoPage = () => {
               {paginacion.totalPaginas > 1 && (
                 <div className="d-flex justify-content-center mt-4">
                   <Button
-                    variant="outline-primary"
+                    className="btn-paginacion"
                     disabled={paginacion.pagina === 1}
                     onClick={() => handlePageChange(paginacion.pagina - 1)}
-                    className="me-2"
                   >
                     <i className="bi bi-chevron-left"></i> Anterior
                   </Button>
@@ -291,9 +285,8 @@ const CatalogoPage = () => {
                       return (
                         <Button
                           key={pageNum}
-                          variant={paginacion.pagina === pageNum ? 'primary' : 'outline-primary'}
+                          className={paginacion.pagina === pageNum ? 'btn-paginacion-active' : 'btn-paginacion'}
                           onClick={() => handlePageChange(pageNum)}
-                          className="me-2"
                         >
                           {pageNum}
                         </Button>
@@ -302,7 +295,7 @@ const CatalogoPage = () => {
                   </div>
                   
                   <Button
-                    variant="outline-primary"
+                    className="btn-paginacion"
                     disabled={paginacion.pagina === paginacion.totalPaginas}
                     onClick={() => handlePageChange(paginacion.pagina + 1)}
                   >
@@ -322,6 +315,86 @@ const CatalogoPage = () => {
           )}
         </Col>
       </Row>
+
+      {/* Estilos personalizados usando variables globales */}
+      <style jsx>{`
+        .catalogo-title {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          font-weight: 700;
+        }
+        .filtros-card {
+          background: var(--bg-positiva, #DBE1ED);
+          border-radius: 1rem;
+          box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+        }
+        .filtros-title {
+          color: var(--bg-negativo, #192847);
+          font-weight: 600;
+          border-bottom: 1px solid var(--gray-300, #d1d5db);
+          padding-bottom: 0.5rem;
+        }
+        .filtros-label {
+          font-weight: 600;
+          color: var(--bg-negativo, #192847);
+        }
+        .filtros-input, .filtros-select {
+          border-radius: 0.75rem;
+          border: 1px solid var(--gray-300, #d1d5db);
+          padding: 0.5rem 0.75rem;
+          transition: all 0.3s ease;
+          background-color: var(--bg, #ffffff);
+        }
+        .filtros-input:focus, .filtros-select:focus {
+          border-color: var(--bs-gold, #f5c271);
+          box-shadow: 0 0 0 3px rgba(145, 105, 52, 0.1);
+        }
+        .btn-limpiar-filtros {
+          background: transparent;
+          border: 2px solid var(--bs-gold, #f5c271);
+          color: var(--bs-gold-dark, #c7984e);
+          border-radius: 0.75rem;
+          padding: 0.5rem;
+          font-weight: 600;
+          transition: all 0.3s ease;
+        }
+        .btn-limpiar-filtros:hover {
+          background: var(--bs-gold, #f5c271);
+          color: var(--fnt-black, #000000);
+          transform: translateY(-2px);
+        }
+        .btn-paginacion {
+          background: transparent;
+          border: 1px solid var(--bs-gold, #f5c271);
+          color: var(--bs-gold-dark, #c7984e);
+          border-radius: 0.5rem;
+          margin: 0 0.25rem;
+          padding: 0.375rem 0.75rem;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+        .btn-paginacion:hover:not(:disabled) {
+          background: var(--bs-gold, #f5c271);
+          color: var(--fnt-black, #000000);
+          transform: translateY(-1px);
+        }
+        .btn-paginacion-active {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          border: none;
+          color: var(--fnt-black, #000000);
+          border-radius: 0.5rem;
+          margin: 0 0.25rem;
+          padding: 0.375rem 0.75rem;
+          font-weight: 500;
+          box-shadow: 0 2px 8px rgba(145, 105, 52, 0.3);
+        }
+        .btn-paginacion:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      `}</style>
     </Container>
   );
 };

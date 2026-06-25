@@ -191,6 +191,18 @@ app.use('/api/admin', adminRoutes);
 const clienteRoutes = require('./routes/cliente.routes');
 app.use('/api', clienteRoutes);
 
+// Rutas de comentarios → prefijo /api
+// Archivo: routes/comentarios.routes.js
+// Incluye rutas de comentarios para cliente, público y admin
+const comentariosRoutes = require('./routes/comentarios.routes');
+app.use('/api', comentariosRoutes);
+
+// Rutas de facturas → prefijo /api
+// Archivo: routes/facturas.routes.js
+// Incluye rutas cliente (crear, descargar, listar facturas) y rutas admin (ver todas, anular)
+const facturasRoutes = require('./routes/facturas.routes');
+app.use('/api', facturasRoutes);
+
 // ==========================================
 // MANEJO DE RUTAS NO ENCONTRADAS (404)
 // ==========================================

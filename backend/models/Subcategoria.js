@@ -134,6 +134,28 @@ const Subcategoria = sequelize.define('Subcategoria', {
     },
 
     /**
+     * beforeUpdate → Se ejecuta ANTES de actualizar una subcategoría.
+     * Valida que la categoría padre exista y que no se active una subcategoría
+     * dentro de una categoría inactiva.
+     */
+    beforeUpdate: async (subcategoria) => {
+      const Categoria = require('./Categoria');
+      const categoria = await Categoria.findByPk(subcategoria.categoriaId);
+
+      if (!categoria) {
+        throw new Error('La categoría seleccionada no existe');
+      }
+
+      if (!categoria.activo && subcategoria.activo) {
+        throw new Error('No se puede activar una subcategoría en una categoría inactiva');
+      }
+
+      if (subcategoria.changed('categoriaId') && !categoria.activo) {
+        throw new Error('No se puede mover la subcategoría a una categoría inactiva');
+      }
+    },
+
+    /**
      * afterUpdate → Se ejecuta DESPUÉS de actualizar una subcategoría
      * Implementa DESACTIVACIÓN EN CASCADA:
      * Si activo cambia a false → desactiva TODOS los productos de esta subcategoría.

@@ -203,6 +203,12 @@ const AdminSubcategoriasPage = () => {
     }
   };
 
+  const obtenerNombreCategoria = (categoriaId) => {
+    const idNumero = Number(categoriaId);
+    const categoria = categorias.find(c => c.id === idNumero || Number(c.id) === idNumero);
+    return categoria?.nombre || '-';
+  };
+
   if (loading) {
     return <LoadingSpinner message="Cargando subcategorías..." />;
   }
@@ -232,7 +238,7 @@ const AdminSubcategoriasPage = () => {
               <i className={`bi bi-file-earmark-${tipoExportacion === 'pdf' ? 'pdf' : 'excel'} me-1`}></i>
               Exportar a {tipoExportacion === 'pdf' ? 'PDF' : 'Excel'}
             </Button>
-            <Dropdown.Toggle split variant="success" />
+            <Dropdown.Toggle split variant="secondary" className="btn-dark dropdown-toggle-split" />
             <Dropdown.Menu>
               <Dropdown.Item 
                 onClick={() => {
@@ -254,14 +260,14 @@ const AdminSubcategoriasPage = () => {
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
-          <Button variant="outline-secondary" onClick={() => navigate('/admin/dashboard')} className="me-2">
+          <button type="button" className="btn btn-dark me-2" onClick={() => navigate('/admin/dashboard')}>
             <i className="bi bi-arrow-left me-1"></i>
             Volver
-          </Button>
-          <Button variant="primary" onClick={() => handleShowModal()}>
+          </button>
+          <button type="button" className="btn btn-dark" onClick={() => handleShowModal()}>
             <i className="bi bi-plus-circle me-1"></i>
             Nueva Subcategoría
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -318,14 +324,14 @@ const AdminSubcategoriasPage = () => {
               </Form.Select>
             </Col>
             <Col md={2}>
-              <Button
-                variant="outline-secondary"
-                className="w-100"
+              <button
+                type="button"
+                className="btn btn-dark btn-sm w-100"
                 onClick={() => setFiltros({ busqueda: '', categoriaId: 'todas', estado: 'todos' })}
               >
                 <i className="bi bi-x-circle me-1"></i>
                 Limpiar
-              </Button>
+              </button>
             </Col>
           </Row>
           <Row>
@@ -364,9 +370,7 @@ const AdminSubcategoriasPage = () => {
                   <tr key={sub.id}>
                     <td className="align-middle">{sub.id}</td>
                     <td className="align-middle fw-bold">{sub.nombre}</td>
-                    <td className="align-middle">
-                      <Badge bg="info">{sub.categoria?.nombre || 'N/A'}</Badge>
-                    </td>
+                    <td className="align-middle">{obtenerNombreCategoria(sub.categoriaId)}</td>
                     <td className="align-middle">{sub.descripcion || '-'}</td>
                     <td className="align-middle">
                       <Badge bg={sub.activo ? 'success' : 'secondary'}>
@@ -464,7 +468,15 @@ const AdminSubcategoriasPage = () => {
       )}
 
       {/* Modal para crear/editar */}
-      <Modal show={showModal} onHide={handleCloseModal}>
+      <Modal
+        show={showModal}
+        onHide={handleCloseModal}
+        size="lg"
+        centered
+        scrollable
+        dialogClassName="subcategorias-modal-dialog"
+        contentClassName="subcategorias-modal-content"
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             {editando ? 'Editar Subcategoría' : 'Nueva Subcategoría'}
@@ -531,6 +543,29 @@ const AdminSubcategoriasPage = () => {
           </Modal.Footer>
         </Form>
       </Modal>
+
+      <style jsx>{`
+        :global(.subcategorias-modal-dialog) {
+          max-height: calc(100vh - 2rem);
+        }
+
+        :global(.subcategorias-modal-content) {
+          display: flex;
+          flex-direction: column;
+          max-height: calc(100vh - 2rem);
+        }
+
+        :global(.subcategorias-modal-content .modal-body) {
+          overflow-y: auto;
+        }
+
+        :global(.subcategorias-modal-content .modal-footer) {
+          position: sticky;
+          bottom: 0;
+          background: var(--bs-body-bg, #fff);
+          z-index: 1;
+        }
+      `}</style>
     </Container>
   );
 };

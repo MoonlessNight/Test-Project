@@ -50,12 +50,19 @@ export const formatDateTime = (dateString) => {
  * Obtener URL completa de la imagen
  */
 export const getImageUrl = (imagePath) => {
-  if (!imagePath) return '/placeholder.png';
-  if (imagePath.startsWith('http')) return imagePath;
-  
-  const cleanPath = imagePath.replace(/^\//, '');
-  const finalPath = cleanPath.startsWith('uploads/') ? cleanPath : `uploads/${cleanPath}`;
-  return `http://localhost:5000/${finalPath}`;
+  if (!imagePath) return '/producto-default.jpg';
+
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+    return imagePath;
+  }
+
+  const normalizedPath = imagePath.startsWith('/uploads/')
+    ? imagePath
+    : imagePath.startsWith('uploads/')
+      ? `/${imagePath}`
+      : `/uploads/${imagePath}`;
+
+  return `http://localhost:5000${normalizedPath}`;
 };
 
 /**

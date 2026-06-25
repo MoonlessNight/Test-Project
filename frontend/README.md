@@ -151,11 +151,11 @@ La autenticación se maneja con:
 
 ## 🔄 Próximos Pasos
 
-- [x] Crear contexto de autenticación (Fase 8)
-- [x] Crear páginas de login y registro (Fase 8)
-- [x] Crear panel de administrador (Fase 9)
-- [x] Crear panel de cliente (Fase 10)
-- [x] Integrar con el backend (Fase 11)
+- [ ] Crear contexto de autenticación (Fase 8)
+- [ ] Crear páginas de login y registro (Fase 8)
+- [ ] Crear panel de administrador (Fase 9)
+- [ ] Crear panel de cliente (Fase 10)
+- [ ] Integrar con el backend (Fase 11)
 
 ## 📧 Soporte
 

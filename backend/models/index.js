@@ -41,6 +41,12 @@ const Pedido = require('./Pedido');
 // Importa el modelo DetallePedido desde models/DetallePedido.js → tabla 'detalle_pedidos'
 const DetallePedido = require('./DetallePedido');
 
+// Importa el modelo Comentario desde models/Comentario.js → tabla 'comentarios'
+const Comentario = require('./Comentario');
+
+// Importa el modelo Factura desde models/Factura.js → tabla 'facturas'
+const Factura = require('./Factura');
+
 /**
  * ============================================
  * DEFINIR ASOCIACIONES (RELACIONES)
@@ -271,6 +277,69 @@ Producto.belongsToMany(Pedido, {
   as: 'pedidos'                    // Alias → Producto.findAll({ include: ['pedidos'] })
 });
 
+// ==========================================
+// 9. USUARIO ↔ COMENTARIO (Uno a Muchos)
+// ==========================================
+// Un usuario puede tener muchos comentarios
+// Cada comentario pertenece a un usuario
+
+Usuario.hasMany(Comentario, {
+  foreignKey: 'usuarioId',
+  as: 'comentarios',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+Comentario.belongsTo(Usuario, {
+  foreignKey: 'usuarioId',
+  as: 'usuario',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+// ==========================================
+// 10. PRODUCTO ↔ COMENTARIO (Uno a Muchos)
+// ==========================================
+// Un producto puede tener muchos comentarios
+// Cada comentario pertenece a un producto
+
+Producto.hasMany(Comentario, {
+  foreignKey: 'productoId',
+  as: 'comentarios',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+Comentario.belongsTo(Producto, {
+  foreignKey: 'productoId',
+  as: 'producto',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+// ==========================================
+// 11. PEDIDO ↔ FACTURA (Uno a Uno)
+// ==========================================
+// Un pedido tiene UNA factura (después de pagar)
+// Una factura pertenece a UN pedido
+// RESTRICT: No se puede eliminar un pedido que tiene factura (es documento fiscal)
+
+// Lado UNO → el pedido "tiene una" factura
+Pedido.hasOne(Factura, {
+  foreignKey: 'pedidoId',
+  as: 'factura',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
+// Lado UNO → la factura "pertenece a" un pedido
+Factura.belongsTo(Pedido, {
+  foreignKey: 'pedidoId',
+  as: 'pedido',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
 /**
  * ============================================
  * FUNCIÓN DE INICIALIZACIÓN DE ASOCIACIONES
@@ -302,6 +371,8 @@ module.exports = {
   Carrito,                           // Modelo de carrito → tabla 'carritos'
   Pedido,                            // Modelo de pedidos → tabla 'pedidos'
   DetallePedido,                     // Modelo de detalles de pedido → tabla 'detalle_pedidos'
+  Comentario,                        // Modelo de comentarios → tabla 'comentarios'
+  Factura,                           // Modelo de facturas → tabla 'facturas'
   initAssociations                   // Función para confirmar asociaciones en consola
 };
 

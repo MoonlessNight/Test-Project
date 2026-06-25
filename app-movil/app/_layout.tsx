@@ -94,8 +94,8 @@ export default function RootLayout() {
             <Stack.Screen name="admin/producto-form" options={{ title: 'Crear/Editar Producto' }} />
             <Stack.Screen name="admin/usuarios" options={{ title: 'Usuarios' }} />
             <Stack.Screen name="admin/pedidos" options={{ title: 'Pedidos' }} />
-            {/* Ruta dinámica: [id] se reemplaza por el ID real del pedido en tiempo de ejecución. */}
             <Stack.Screen name="admin/pedidos/[id]" options={{ title: 'Detalle Pedido' }} />
+            <Stack.Screen name="admin/comentarios" options={{ title: 'Comentarios', headerShown: false }} />
 
             {/* ── Pantallas del flujo de compra del cliente ── */}
             <Stack.Screen name="checkout" options={{ title: 'Checkout' }} />

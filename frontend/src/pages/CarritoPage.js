@@ -1,13 +1,13 @@
 /**
  * ============================================
- * CARRITO PAGE
+ * CARRITO PAGE - Adaptado a la paleta del proyecto
  * ============================================
- * Página del carrito de compras
+ * Página del carrito de compras con estilos personalizados (dorados, fondos)
  */
 
 import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Card, Button, Table, Alert, Badge } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import carritoService from '../services/carritoService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
@@ -28,7 +28,6 @@ const CarritoPage = () => {
     try {
       const response = await carritoService.getCarrito();
       console.log('📥 Respuesta del carrito:', response);
-      // El backend devuelve response.data con items y resumen
       setCarrito(response.data || response.carrito);
     } catch (error) {
       console.error('Error al cargar carrito:', error);
@@ -87,7 +86,6 @@ const CarritoPage = () => {
       return;
     }
 
-    // Aquí iría la navegación a la página de checkout
     navigate('/checkout');
   };
 
@@ -108,13 +106,13 @@ const CarritoPage = () => {
 
   return (
     <Container className="py-4">
-      <h1 className="mb-4">
+      <h1 className="carrito-title mb-4">
         <i className="bi bi-cart me-2"></i>
         Mi Carrito
       </h1>
 
       {!isAuthenticated && (
-        <Alert variant="info" className="mb-4">
+        <Alert variant="info" className="carrito-alert-info mb-4">
           <i className="bi bi-info-circle me-2"></i>
           Puedes agregar productos sin iniciar sesión. Al momento de pagar deberás crear una cuenta o iniciar sesión.
         </Alert>
@@ -127,12 +125,12 @@ const CarritoPage = () => {
       )}
 
       {items.length === 0 ? (
-        <Card className="text-center py-5">
+        <Card className="carrito-empty-card text-center py-5">
           <Card.Body>
             <i className="bi bi-cart-x display-1 text-muted"></i>
             <h3 className="mt-3">Tu carrito está vacío</h3>
             <p className="text-muted">Agrega productos para comenzar tu compra</p>
-            <Button variant="primary" onClick={() => navigate('/catalogo')}>
+            <Button as={Link} to="/catalogo" className="btn-ir-catalogo">
               <i className="bi bi-shop me-2"></i>
               Ir al Catálogo
             </Button>
@@ -141,15 +139,15 @@ const CarritoPage = () => {
       ) : (
         <Row>
           <Col lg={8}>
-            <Card className="mb-4">
-              <Card.Header className="bg-white">
+            <Card className="carrito-card mb-4">
+              <Card.Header className="carrito-card-header">
                 <div className="d-flex justify-content-between align-items-center">
                   <h5 className="mb-0">
                     Productos en tu carrito
-                    <Badge bg="primary" className="ms-2">{items.length}</Badge>
+                    <Badge className="carrito-badge ms-2">{items.length}</Badge>
                   </h5>
                   <Button 
-                    variant="outline-danger" 
+                    className="btn-vaciar-carrito" 
                     size="sm"
                     onClick={handleVaciarCarrito}
                   >
@@ -159,8 +157,8 @@ const CarritoPage = () => {
                 </div>
               </Card.Header>
               <Card.Body className="p-0">
-                <Table responsive hover className="mb-0">
-                  <thead className="bg-light">
+                <Table responsive hover className="carrito-table mb-0">
+                  <thead className="carrito-table-header">
                     <tr>
                       <th>Producto</th>
                       <th className="text-center">Precio</th>
@@ -201,7 +199,7 @@ const CarritoPage = () => {
                         <td className="text-center align-middle">
                           <div className="d-flex justify-content-center align-items-center">
                             <Button
-                              variant="outline-secondary"
+                              className="btn-cantidad"
                               size="sm"
                               onClick={() => handleCantidadChange(item.id, item.cantidad - 1)}
                             >
@@ -209,7 +207,7 @@ const CarritoPage = () => {
                             </Button>
                             <span className="mx-3">{item.cantidad}</span>
                             <Button
-                              variant="outline-secondary"
+                              className="btn-cantidad"
                               size="sm"
                               onClick={() => handleCantidadChange(item.id, item.cantidad + 1)}
                             >
@@ -222,7 +220,7 @@ const CarritoPage = () => {
                         </td>
                         <td className="text-center align-middle">
                           <Button
-                            variant="outline-danger"
+                            className="btn-eliminar"
                             size="sm"
                             onClick={() => handleEliminar(item.id)}
                           >
@@ -238,8 +236,8 @@ const CarritoPage = () => {
           </Col>
 
           <Col lg={4}>
-            <Card className="sticky-top" style={{ top: '20px' }}>
-              <Card.Header className="bg-white">
+            <Card className="resumen-card sticky-top" style={{ top: '20px' }}>
+              <Card.Header className="resumen-card-header">
                 <h5 className="mb-0">Resumen del Pedido</h5>
               </Card.Header>
               <Card.Body>
@@ -251,15 +249,14 @@ const CarritoPage = () => {
                   <span>Envío:</span>
                   <span className="text-muted">A calcular</span>
                 </div>
-                <hr />
+                <hr className="resumen-hr" />
                 <div className="d-flex justify-content-between mb-3">
                   <strong>Total:</strong>
-                  <strong className="text-primary fs-4">{formatearPrecio(total)}</strong>
+                  <strong className="resumen-total fs-4">{formatearPrecio(total)}</strong>
                 </div>
 
                 <Button
-                  variant="primary"
-                  className="w-100 mb-2"
+                  className="btn-proceder-pago w-100 mb-2"
                   size="lg"
                   onClick={handleProcederPago}
                 >
@@ -267,11 +264,7 @@ const CarritoPage = () => {
                   {isAuthenticated ? 'Proceder al Pago' : 'Iniciar Sesión para Pagar'}
                 </Button>
 
-                <Button
-                  variant="outline-secondary"
-                  className="w-100"
-                  onClick={() => navigate('/catalogo')}
-                >
+                <Button as={Link} to="/catalogo" className="btn-seguir-comprando w-100">
                   <i className="bi bi-arrow-left me-2"></i>
                   Seguir Comprando
                 </Button>
@@ -280,6 +273,144 @@ const CarritoPage = () => {
           </Col>
         </Row>
       )}
+
+      {/* Estilos personalizados usando variables globales */}
+      <style jsx>{`
+        .carrito-title {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          font-weight: 700;
+        }
+        .carrito-alert-info {
+          border-radius: 0.75rem;
+          background-color: #cfe2ff;
+          border: none;
+          color: #084298;
+        }
+        .carrito-empty-card, .carrito-card, .resumen-card {
+          border-radius: 1.5rem;
+          border: none;
+          overflow: hidden;
+          background: var(--bg, #ffffff);
+          box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1));
+        }
+        .carrito-card-header, .resumen-card-header {
+          background: var(--bg-positiva, #DBE1ED);
+          border-bottom: none;
+          padding: 1rem 1.5rem;
+          font-weight: 600;
+          color: var(--bg-negativo, #192847);
+        }
+        .carrito-badge {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          color: var(--fnt-black, #000000);
+          padding: 0.35rem 0.65rem;
+          border-radius: 0.5rem;
+        }
+        .btn-vaciar-carrito {
+          background: transparent;
+          border: 1px solid var(--bs-gold, #f5c271);
+          color: var(--bs-gold-dark, #c7984e);
+          border-radius: 0.5rem;
+          transition: all 0.2s ease;
+        }
+        .btn-vaciar-carrito:hover {
+          background: var(--bs-gold, #f5c271);
+          color: var(--fnt-black, #000000);
+          transform: translateY(-1px);
+        }
+        .carrito-table {
+          border-radius: 1.5rem;
+          overflow: hidden;
+        }
+        .carrito-table-header {
+          background: var(--bg-positiva, #DBE1ED);
+          color: var(--bg-negativo, #192847);
+          font-weight: 600;
+        }
+        .carrito-table-header th {
+          border-bottom: none;
+          padding: 1rem;
+        }
+        .btn-cantidad {
+          background: transparent;
+          border: 1px solid var(--bs-gold, #f5c271);
+          color: var(--bs-gold-dark, #c7984e);
+          border-radius: 0.5rem;
+          padding: 0.25rem 0.5rem;
+          transition: all 0.2s ease;
+        }
+        .btn-cantidad:hover {
+          background: var(--bs-gold, #f5c271);
+          color: var(--fnt-black, #000000);
+        }
+        .btn-eliminar {
+          background: transparent;
+          border: 1px solid #dc3545;
+          color: #dc3545;
+          border-radius: 0.5rem;
+          padding: 0.25rem 0.5rem;
+          transition: all 0.2s ease;
+        }
+        .btn-eliminar:hover {
+          background: #dc3545;
+          color: white;
+          transform: translateY(-1px);
+        }
+        .resumen-hr {
+          background-color: var(--gray-300, #d1d5db);
+          opacity: 0.5;
+        }
+        .resumen-total {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .btn-proceder-pago {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          border: none;
+          border-radius: 0.75rem;
+          padding: 0.75rem;
+          font-weight: 600;
+          color: var(--fnt-black, #000000);
+          transition: all 0.3s ease;
+        }
+        .btn-proceder-pago:hover {
+          background: linear-gradient(135deg, var(--bs-gold-dark, #c7984e), var(--bs-oldGold-bg, #916934));
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px 0 rgba(145, 105, 52, 0.3);
+        }
+        .btn-seguir-comprando {
+          background: transparent;
+          border: 2px solid var(--bs-gold, #f5c271);
+          color: var(--bs-gold-dark, #c7984e);
+          border-radius: 0.75rem;
+          padding: 0.625rem;
+          font-weight: 600;
+          transition: all 0.3s ease;
+        }
+        .btn-seguir-comprando:hover {
+          background: var(--bs-gold, #f5c271);
+          color: var(--fnt-black, #000000);
+          transform: translateY(-2px);
+        }
+        .btn-ir-catalogo {
+          background: linear-gradient(135deg, var(--bs-gold, #f5c271), var(--bs-gold-dark, #c7984e));
+          border: none;
+          border-radius: 0.75rem;
+          padding: 0.625rem 1.5rem;
+          font-weight: 600;
+          color: var(--fnt-black, #000000);
+          transition: all 0.3s ease;
+        }
+        .btn-ir-catalogo:hover {
+          background: linear-gradient(135deg, var(--bs-gold-dark, #c7984e), var(--bs-oldGold-bg, #916934));
+          transform: translateY(-2px);
+        }
+      `}</style>
     </Container>
   );
 };

@@ -6,7 +6,6 @@
  */
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { Container, Card, Table, Button, Modal, Form, Alert, Badge, Dropdown, ButtonGroup, Row, Col, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -196,131 +195,117 @@ const AdminCategoriasPage = () => {
   }
 
   return (
-    <Container className="py-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
+    <div className="admin-categorias-page">
+      <div className="admin-toolbar">
+        <div className="admin-title">
           <h1>
-            <i className="bi bi-folder me-2"></i>
+            <i className="bi bi-folder"></i>
             Gestión de Categorías
           </h1>
-          <p className="text-muted mb-0">Administra las categorías de productos</p>
+          <p className="subtext">Administra las categorías de productos</p>
         </div>
-        <div>
-          <Dropdown as={ButtonGroup} className="me-2">
-            <Button 
-              variant="success" 
-              onClick={async () => {
-                if (tipoExportacion === 'pdf') {
-                  exportarCategoriasAPDF(categoriasFiltradas);
-                } else {
-                  await exportarCategoriasAExcel(categoriasFiltradas);
-                }
+
+        <div className="action-groups">
+          <div className="export-actions">
+            <button
+              type="button"
+              className={`btn ${tipoExportacion === 'pdf' ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={() => {
+                setTipoExportacion('pdf');
+                exportarCategoriasAPDF(categoriasFiltradas);
               }}
             >
-              <i className={`bi bi-file-earmark-${tipoExportacion === 'pdf' ? 'pdf' : 'excel'} me-1`}></i>
-              Exportar a {tipoExportacion === 'pdf' ? 'PDF' : 'Excel'}
-            </Button>
-            <Dropdown.Toggle split variant="success" />
-            <Dropdown.Menu>
-              <Dropdown.Item 
-                onClick={() => {
-                  setTipoExportacion('pdf');
-                  exportarCategoriasAPDF(categoriasFiltradas);
-                }}
-              >
-                <i className="bi bi-file-earmark-pdf me-2"></i>
-                Exportar a PDF
-              </Dropdown.Item>
-              <Dropdown.Item 
-                onClick={async () => {
-                  setTipoExportacion('excel');
-                  await exportarCategoriasAExcel(categoriasFiltradas);
-                }}
-              >
-                <i className="bi bi-file-earmark-excel me-2"></i>
-                Exportar a Excel
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
-          <Button variant="outline-secondary" onClick={() => navigate('/admin/dashboard')} className="me-2">
-            <i className="bi bi-arrow-left me-1"></i>
-            Volver
-          </Button>
-          <Button variant="primary" onClick={() => handleShowModal()}>
-            <i className="bi bi-plus-circle me-1"></i>
-            Nueva Categoría
-          </Button>
+              <i className="bi bi-file-earmark-pdf"></i>
+              Exportar a PDF
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={async () => {
+                setTipoExportacion('excel');
+                await exportarCategoriasAExcel(categoriasFiltradas);
+              }}
+            >
+              <i className="bi bi-file-earmark-excel"></i>
+              Exportar a Excel
+            </button>
+          </div>
+
+          <div className="nav-actions">
+            <button type="button" className="btn btn-outline-secondary" onClick={() => navigate('/admin/dashboard')}>
+              <i className="bi bi-arrow-left"></i>
+              Volver
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => handleShowModal()}>
+              <i className="bi bi-plus-circle"></i>
+              Nueva Categoría
+            </button>
+          </div>
         </div>
       </div>
 
       {mensaje.texto && (
-        <Alert variant={mensaje.tipo} dismissible onClose={() => setMensaje({ tipo: '', texto: '' })}>
+        <div className={`alert alert-${mensaje.tipo}`}>
           {mensaje.texto}
-        </Alert>
+        </div>
       )}
 
-      {/* Filtros */}
-      <Card className="mb-3">
-        <Card.Header className="bg-light">
-          <i className="bi bi-funnel me-2"></i>
+      <section className="admin-card">
+        <div className="admin-card-header">
+          <i className="bi bi-funnel"></i>
           <strong>Filtros</strong>
-        </Card.Header>
-        <Card.Body>
-          <Row>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Buscar</Form.Label>
-                <InputGroup>
-                  <InputGroup.Text>
-                    <i className="bi bi-search"></i>
-                  </InputGroup.Text>
-                  <Form.Control
-                    type="text"
-                    placeholder="Buscar por nombre o descripción..."
-                    value={filtros.busqueda}
-                    onChange={(e) => setFiltros({ ...filtros, busqueda: e.target.value })}
-                  />
-                </InputGroup>
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group>
-                <Form.Label>Estado</Form.Label>
-                <Form.Select
-                  value={filtros.estado}
-                  onChange={(e) => setFiltros({ ...filtros, estado: e.target.value })}
-                >
-                  <option value="todos">Todos</option>
-                  <option value="activos">Activos</option>
-                  <option value="inactivos">Inactivos</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={3} className="d-flex align-items-end">
-              <Button 
-                variant="outline-secondary" 
-                onClick={() => setFiltros({ busqueda: '', estado: 'todos' })}
-                className="w-100"
-              >
-                <i className="bi bi-x-circle me-1"></i>
-                Limpiar filtros
-              </Button>
-            </Col>
-          </Row>
-          <Row className="mt-2">
-            <Col>
-              <small className="text-muted">
-                Mostrando {categoriasFiltradas.length} de {categorias.length} categorías
-              </small>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
+        </div>
+        <div className="admin-card-body">
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Buscar</label>
+              <div className="input-group">
+                <span className="input-icon"><i className="bi bi-search"></i></span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Buscar por nombre o descripción..."
+                  value={filtros.busqueda}
+                  onChange={(e) => setFiltros({ ...filtros, busqueda: e.target.value })}
+                />
+              </div>
+            </div>
 
-      <Card>
-        <Card.Body className="p-0">
-          <Table responsive hover className="mb-0">
-            <thead className="bg-light">
+            <div className="form-group">
+              <label>Estado</label>
+              <select
+                className="form-select"
+                value={filtros.estado}
+                onChange={(e) => setFiltros({ ...filtros, estado: e.target.value })}
+              >
+                <option value="todos">Todos</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
+
+            <div className="form-group form-align-end">
+              <button
+                type="button"
+                className="btn btn-outline-secondary full-width"
+                onClick={() => setFiltros({ busqueda: '', estado: 'todos' })}
+              >
+                <i className="bi bi-x-circle"></i>
+                Limpiar filtros
+              </button>
+            </div>
+          </div>
+
+          <div className="text-muted small">
+            Mostrando {categoriasFiltradas.length} de {categorias.length} categorías
+          </div>
+        </div>
+      </section>
+
+      <section className="admin-card">
+        <div className="table-responsive">
+          <table className="admin-table">
+            <thead>
               <tr>
                 <th>ID</th>
                 <th>Nombre</th>
@@ -339,158 +324,128 @@ const AdminCategoriasPage = () => {
               ) : (
                 categoriasPaginadas.map((cat) => (
                   <tr key={cat.id}>
-                    <td className="align-middle">{cat.id}</td>
-                    <td className="align-middle fw-bold">{cat.nombre}</td>
-                    <td className="align-middle">{cat.descripcion || '-'}</td>
-                    <td className="align-middle">
-                      <Badge bg={cat.activo ? 'success' : 'secondary'}>
+                    <td>{cat.id}</td>
+                    <td className="font-bold">{cat.nombre}</td>
+                    <td>{cat.descripcion || '-'}</td>
+                    <td>
+                      <span className={`badge ${cat.activo ? 'badge-success' : 'badge-secondary'}`}>
                         {cat.activo ? 'Activo' : 'Inactivo'}
-                      </Badge>
+                      </span>
                     </td>
-                    <td className="align-middle text-center">
-                      <Button
-                        variant="outline-primary"
-                        size="sm"
-                        className="me-1"
-                        onClick={() => handleShowModal(cat)}
-                      >
+                    <td className="text-center">
+                      <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => handleShowModal(cat)}>
                         <i className="bi bi-pencil"></i>
-                      </Button>
-                      <Button
-                        variant={cat.activo ? 'outline-warning' : 'outline-success'}
-                        size="sm"
-                        className="me-1"
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${cat.activo ? 'btn-outline-warning' : 'btn-outline-success'} btn-sm`}
                         onClick={() => handleToggleActivo(cat)}
                       >
                         <i className={`bi bi-${cat.activo ? 'x-circle' : 'check-circle'}`}></i>
-                      </Button>
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={() => handleDelete(cat.id)}
-                      >
+                      </button>
+                      <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => handleDelete(cat.id)}>
                         <i className="bi bi-trash"></i>
-                      </Button>
+                      </button>
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
-      
-      {/* Paginación */}
+          </table>
+        </div>
+      </section>
+
       {totalPaginas > 1 && (
-        <Card className="mt-3">
-          <Card.Body>
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <small className="text-muted">
-                  <i className="bi bi-file-text me-1"></i>
-                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> - Mostrando <strong>{categoriasPaginadas.length}</strong> de <strong>{categoriasFiltradas.length}</strong> registros
-                </small>
-              </div>
-              <div className="btn-group">
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={() => setPaginaActual(1)}
-                  disabled={paginaActual === 1}
-                  title="Primera página"
-                >
-                  <i className="bi bi-chevron-bar-left"></i>
-                </Button>
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={() => setPaginaActual(prev => prev - 1)}
-                  disabled={paginaActual === 1}
-                  title="Página anterior"
-                >
-                  <i className="bi bi-chevron-left me-1"></i> Anterior
-                </Button>
-                <Button variant="primary" size="sm" disabled>
-                  {paginaActual} / {totalPaginas}
-                </Button>
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={() => setPaginaActual(prev => prev + 1)}
-                  disabled={paginaActual === totalPaginas}
-                  title="Página siguiente"
-                >
-                  Siguiente <i className="bi bi-chevron-right ms-1"></i>
-                </Button>
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={() => setPaginaActual(totalPaginas)}
-                  disabled={paginaActual === totalPaginas}
-                  title="Última página"
-                >
-                  <i className="bi bi-chevron-bar-right"></i>
-                </Button>
-              </div>
+        <section className="admin-card pagination-card">
+          <div className="admin-pagination">
+            <div>
+              <small className="text-muted">
+                <i className="bi bi-file-text"></i>
+                Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> - Mostrando <strong>{categoriasPaginadas.length}</strong> de <strong>{categoriasFiltradas.length}</strong> registros
+              </small>
             </div>
-          </Card.Body>
-        </Card>
+            <div className="pagination-buttons">
+              <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setPaginaActual(1)} disabled={paginaActual === 1} title="Primera página">
+                <i className="bi bi-chevron-bar-left"></i>
+              </button>
+              <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setPaginaActual(prev => prev - 1)} disabled={paginaActual === 1} title="Página anterior">
+                <i className="bi bi-chevron-left"></i> Anterior
+              </button>
+              <button type="button" className="btn btn-primary btn-sm" disabled>
+                {paginaActual} / {totalPaginas}
+              </button>
+              <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setPaginaActual(prev => prev + 1)} disabled={paginaActual === totalPaginas} title="Página siguiente">
+                Siguiente <i className="bi bi-chevron-right"></i>
+              </button>
+              <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setPaginaActual(totalPaginas)} disabled={paginaActual === totalPaginas} title="Última página">
+                <i className="bi bi-chevron-bar-right"></i>
+              </button>
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* Modal para crear/editar */}
-      <Modal show={showModal} onHide={handleCloseModal}>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            {editando ? 'Editar Categoría' : 'Nueva Categoría'}
-          </Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Nombre <span className="text-danger">*</span></Form.Label>
-              <Form.Control
-                type="text"
-                name="nombre"
-                value={formData.nombre}
-                onChange={handleChange}
-                required
-                placeholder="Ej: Electrónica"
-              />
-            </Form.Group>
+      {showModal && (
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editando ? 'Editar Categoría' : 'Nueva Categoría'}</h2>
+              <button type="button" className="close-button" onClick={handleCloseModal}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Nombre <span className="text-danger">*</span></label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    className="form-control"
+                    value={formData.nombre}
+                    onChange={handleChange}
+                    required
+                    placeholder="Ej: Electrónica"
+                  />
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Descripción</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                name="descripcion"
-                value={formData.descripcion}
-                onChange={handleChange}
-                placeholder="Descripción de la categoría (opcional)"
-              />
-            </Form.Group>
+                <div className="form-group">
+                  <label>Descripción</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    name="descripcion"
+                    value={formData.descripcion}
+                    onChange={handleChange}
+                    placeholder="Descripción de la categoría (opcional)"
+                  />
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                name="activo"
-                label="Categoría activa"
-                checked={formData.activo}
-                onChange={handleChange}
-              />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit">
-              {editando ? 'Actualizar' : 'Crear'}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
-    </Container>
+                <div className="form-group form-checkbox">
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="activo"
+                      checked={formData.activo}
+                      onChange={handleChange}
+                    />
+                    Categoría activa
+                  </label>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline-secondary" onClick={handleCloseModal}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {editando ? 'Actualizar' : 'Crear'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
