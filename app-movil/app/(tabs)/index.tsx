@@ -47,6 +47,7 @@ export default function HomeScreen() {
     const [selectorAbierto, setSelectorAbierto] = useState(false);
     const [productoDetalle, setProductoDetalle] = useState<any>(null);
     const [paginaActual, setPaginaActual] = useState(1);
+    const [showComentariosModal, setShowComentariosModal] = useState(false);
 
     const [comentariosProducto, setComentariosProducto] = useState<Array<any>>([]);
     const [cargandoComentarios, setCargandoComentarios] = useState(false);
@@ -144,6 +145,7 @@ export default function HomeScreen() {
             setProductos(Array.isArray(productosData) ? productosData : []);
             setCategorias(Array.isArray(categoriasData) ? categoriasData : []);
         } catch (error: unknown) {
+            console.error('Error al cargar el catálogo:', error);
             const msg = (error as { message?: string })?.message;
             setErrorMessage(msg || 'No fue posible cargar el catalogo');
         } finally {
@@ -294,6 +296,7 @@ export default function HomeScreen() {
             setComentarioTexto('');
             setCalificacionSeleccionada(5);
             setMiComentarioId(null);
+            setShowComentariosModal(false);
         }
     }, [productoDetalle, isAuthenticated]);
 
@@ -782,25 +785,120 @@ export default function HomeScreen() {
                                         </ThemedText>
                                     </View>
 
-                                    {/* Botón de salto rápido a comentarios */}
+                                    {/* DIVIDER Y SECCIÓN DE RESUMEN DE PUNTUACIÓN (ÚNICAMENTE) */}
+                                    <View style={styles.divider} />
+                                    
                                     <Pressable 
-                                        style={styles.ratingScrollButton}
-                                        onPress={() => detailScrollViewRef.current?.scrollToEnd({ animated: true })}
+                                        style={styles.ratingSummaryPressable}
+                                        onPress={() => setShowComentariosModal(true)}
                                     >
-                                        <Ionicons name="chatbubbles-outline" size={16} color="#d4956a" />
-                                        <ThemedText style={styles.ratingScrollButtonText}>
-                                            Ver opiniones y calificaciones ({comentariosProducto.length})
+                                        <View style={styles.ratingSummaryRow}>
+                                            <ThemedText style={styles.ratingSummaryHeader}>
+                                                Puntuación y opiniones ({comentariosProducto.length})
+                                            </ThemedText>
+                                            <Ionicons name="chevron-forward" size={18} color="#d4956a" />
+                                        </View>
+                                        
+                                        {comentariosProducto.length > 0 ? (
+                                            <View style={styles.ratingSummaryContent}>
+                                                <View style={styles.ratingStarsRow}>
+                                                    {Array.from({ length: 5 }).map((_, idx) => {
+                                                        const avgRating = comentariosProducto.reduce((s, c) => s + c.calificacion, 0) / comentariosProducto.length;
+                                                        return (
+                                                            <Ionicons
+                                                                key={idx}
+                                                                name={idx < Math.round(avgRating) ? 'star' : 'star-outline'}
+                                                                size={20}
+                                                                color="#d4956a"
+                                                                style={{ marginRight: 4 }}
+                                                            />
+                                                        );
+                                                    })}
+                                                    <ThemedText style={styles.ratingAverageText}>
+                                                        {(comentariosProducto.reduce((s, c) => s + c.calificacion, 0) / comentariosProducto.length).toFixed(1)} de 5
+                                                    </ThemedText>
+                                                </View>
+                                                <ThemedText style={styles.ratingTapToViewText}>
+                                                    Presiona para ver opiniones y calificar
+                                                </ThemedText>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.ratingSummaryContent}>
+                                                <View style={styles.ratingStarsRow}>
+                                                    {Array.from({ length: 5 }).map((_, idx) => (
+                                                        <Ionicons
+                                                            key={idx}
+                                                            name="star-outline"
+                                                            size={20}
+                                                            color="#b8a99a"
+                                                            style={{ marginRight: 4 }}
+                                                        />
+                                                    ))}
+                                                    <ThemedText style={[styles.ratingAverageText, { color: '#9e8879' }]}>
+                                                        Sin calificar
+                                                    </ThemedText>
+                                                </View>
+                                                <ThemedText style={styles.ratingTapToViewText}>
+                                                    Toca para calificar y dejar la primera opinión
+                                                </ThemedText>
+                                            </View>
+                                        )}
+                                    </Pressable>
+                                </ScrollView>
+                                <View style={styles.modalActions}>
+                                    <Pressable
+                                        style={[styles.outlineBtn, { flex: 1, paddingVertical: 12 }]}
+                                        onPress={() => setProductoDetalle(null)}>
+                                        <ThemedText style={styles.outlineBtnText}>Cerrar</ThemedText>
+                                    </Pressable>
+                                    <Pressable
+                                        style={[styles.primaryBtn, { flex: 2, paddingVertical: 12 }]}
+                                        onPress={() => {
+                                            const prod = productoDetalle;
+                                            setProductoDetalle(null);
+                                            handleAgregarAlCarrito(prod);
+                                        }}>
+                                        <Ionicons name="cart" size={16} color="#fff" />
+                                        <ThemedText style={styles.primaryBtnText}>
+                                            Agregar al carrito
                                         </ThemedText>
                                     </Pressable>
+                                </View>
+                            </ThemedView>
+                        </View>
+                    </View>
+                </Modal>
+            )}
 
-                                    {/* DIVIDER Y SECCIÓN COMENTARIOS */}
-                                    <View style={styles.divider} />
+            {showComentariosModal && productoDetalle && (
+                <Modal
+                    visible={true}
+                    transparent
+                    animationType="slide"
+                    statusBarTranslucent
+                    onRequestClose={() => setShowComentariosModal(false)}>
+                    <View style={styles.modalBackdrop}>
+                        <Pressable 
+                            style={StyleSheet.absoluteFillObject} 
+                            onPress={() => setShowComentariosModal(false)} 
+                        />
+                        <View style={styles.modalCardWrapper}>
+                            <ThemedView style={styles.modalCard}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <ThemedText style={[styles.commentsHeader, { fontSize: 16, marginBottom: 0 }]}>
+                                        Opiniones: {productoDetalle.nombre}
+                                    </ThemedText>
+                                    <Pressable onPress={() => setShowComentariosModal(false)} style={{ padding: 4 }}>
+                                        <Ionicons name="close" size={24} color="#9e8879" />
+                                    </Pressable>
+                                </View>
 
+                                <ScrollView
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={{ paddingBottom: 24 }}
+                                    style={styles.modalScroll}
+                                >
                                     <View style={styles.commentsSection}>
-                                        <ThemedText style={styles.commentsHeader}>
-                                            Comentarios y Calificaciones
-                                        </ThemedText>
-                                        
                                         {comentariosProducto.length > 0 ? (
                                             <ThemedText style={styles.commentsSub}>
                                                 ⭐ {(comentariosProducto.reduce((s, c) => s + c.calificacion, 0) / comentariosProducto.length).toFixed(1)} de 5 estrellas ({comentariosProducto.length} {comentariosProducto.length === 1 ? 'comentario' : 'comentarios'})
@@ -851,7 +949,6 @@ export default function HomeScreen() {
                                         )}
                                     </View>
 
-                                    {/* FORMULARIO PARA CALIFICAR Y COMENTAR */}
                                     <View style={styles.divider} />
                                     
                                     <ThemedText style={styles.formHeader}>
@@ -945,20 +1042,8 @@ export default function HomeScreen() {
                                 <View style={styles.modalActions}>
                                     <Pressable
                                         style={[styles.outlineBtn, { flex: 1, paddingVertical: 12 }]}
-                                        onPress={() => setProductoDetalle(null)}>
+                                        onPress={() => setShowComentariosModal(false)}>
                                         <ThemedText style={styles.outlineBtnText}>Cerrar</ThemedText>
-                                    </Pressable>
-                                    <Pressable
-                                        style={[styles.primaryBtn, { flex: 2, paddingVertical: 12 }]}
-                                        onPress={() => {
-                                            const prod = productoDetalle;
-                                            setProductoDetalle(null);
-                                            handleAgregarAlCarrito(prod);
-                                        }}>
-                                        <Ionicons name="cart" size={16} color="#fff" />
-                                        <ThemedText style={styles.primaryBtnText}>
-                                            Agregar al carrito
-                                        </ThemedText>
                                     </Pressable>
                                 </View>
                             </ThemedView>
@@ -1625,6 +1710,49 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 16,
     fontWeight: '500',
+  },
+  ratingSummaryPressable: {
+    backgroundColor: '#fffcf9',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e8ddd5',
+    padding: 16,
+    marginTop: 8,
+    shadowColor: '#c4a882',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  ratingSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  ratingSummaryHeader: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#3d2c1e',
+  },
+  ratingSummaryContent: {
+    gap: 8,
+  },
+  ratingStarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingAverageText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#3d2c1e',
+    marginLeft: 6,
+  },
+  ratingTapToViewText: {
+    fontSize: 12,
+    color: '#d4956a',
+    fontWeight: '600',
+    marginTop: 2,
   },
 });
 
